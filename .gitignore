@@ -1,0 +1,94 @@
+# ============================
+# PYTHON / DJANGO
+# ============================
+
+# Entornos virtuales
+env/
+venv/
+*.venv/
+
+# Archivos de compilación de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+
+# Migraciones que no quieres subir (opcional)
+# migrations/
+
+# Archivos temporales
+*.log
+*.pot
+*.pyc
+*.sqlite3
+
+# Archivos de configuración privados
+*.env
+.env.local
+.env.dev
+.env.prod
+.env.*
+
+# Archivos de caches internos
+staticfiles/
+media/
+*.pid
+
+# ============================
+# DJANGO + REST
+# ============================
+local_settings.py
+db.sqlite3
+
+# ============================
+# POSTGRES / POSTGIS
+# ============================
+*.dump
+*.backup
+
+# ============================
+# NEXT.JS / FRONTEND
+# ============================
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js build
+.next/
+.next/cache/
+out/
+
+# Environment files
+*.env
+*.env.*
+
+
+# ============================
+# SISTEMA OPERATIVO
+# ============================
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.cache/
+
+# ============================
+# OTROS
+# ============================
+.vscode/
+.idea/
+*.swp
+*.swo
