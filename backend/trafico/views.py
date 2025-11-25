@@ -1,32 +1,29 @@
-from django.shortcuts import render
+from rest_framework import generics
+from django_filters.rest_framework import DjangoFilterBackend
+from .models import Segmento, MedicionTrafico
+from .serializers import SegmentoMapSerializer, MedicionStatsSerializer
 
-# Create your views here.
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
+# VISTA 1: API GEOESPACIAL (Para el Mapa)
+# Devuelve los tramos en formato GeoJSON estándar (RFC 7946)
+class Segmentos(generics.ListAPIView):
+    """
+    Retorna los segmentos de carretera con sus coordenadas geométricas.
+    Ideal para librerías de mapas como Leaflet o Mapbox.
+    """
+    queryset = Segmento.objects.all()
+    serializer_class = SegmentoMapSerializer
+    pagination_class = None # No paginamos el mapa, queremos todos los tramos
 
-@api_view(['GET'])
-def traffic_points(request):
-    # Datos simulados para probar
-    data = [
-        {
-            "id": "segmento-1",
-            "name": "Los Chorros – Tramo 1",
-            "lat": 13.70,
-            "lng": -89.30,
-            "status": "moderado",
-            "congestion": 65,
-            "avgSpeed": 45,
-            "vehiclesPerHour": 1200
-        },
-        {
-            "id": "segmento-2",
-            "name": "Los Chorros – Tramo 2",
-            "lat": 13.7050,
-            "lng": -89.2950,
-            "status": "congestionado",
-            "congestion": 85,
-            "avgSpeed": 28,
-            "vehiclesPerHour": 1800
-        }
-    ]
-    return Response(data)
+# VISTA 2: API DE DATOS (Para Gráficos/Dashboard)
+# Devuelve el historial de mediciones de tráfico
+class MedicionList(generics.ListAPIView):
+    """
+    Retorna el historial de mediciones de velocidad y congestión.
+    Se puede filtrar por 'segmento' o 'nivel_congestion'.
+    """
+    queryset = MedicionTrafico.objects.all().order_by('-fecha_hora')
+    serializer_class = MedicionStatsSerializer
+    
+    # Configuración de Filtros (ej: /api/mediciones/?segmento=1)
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['segmento', 'nivel_congestion']
