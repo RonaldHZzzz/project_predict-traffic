@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import sys
 from dotenv import load_dotenv # Importar
 
 load_dotenv() 
@@ -22,16 +23,40 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # CONFIGURACIÓN GDAL PARA WINDOWS
 # --- CONFIGURACIÓN GDAL BLINDADA PARA WINDOWS ---
 if os.name == 'nt':
-    # 1. Definimos la ruta EXACTA a la carpeta osgeo dentro de backend/env
-    # NOTA: Ajusta 'gdal304.dll' si tu archivo tiene otro número (ej. gdal308.dll)
-    OSGEO_PATH = r'C:\project_predict-traffic\backend\env\Lib\site-packages\osgeo'
+    # Buscar automáticamente el entorno virtual
+    def find_osgeo_path():
+        # Opción 1: Buscar en el directorio actual y padres
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Buscar en las posibles ubicaciones del entorno virtual
+        possible_paths = [
+            # Estructura típica: proyecto/backend/env/Lib/site-packages/osgeo
+            os.path.join(current_dir, 'env', 'Lib', 'site-packages', 'osgeo'),
+            os.path.join(current_dir, '..', 'env', 'Lib', 'site-packages', 'osgeo'),
+            os.path.join(current_dir, '..', '..', 'env', 'Lib', 'site-packages', 'osgeo'),
+            
+            # Estructura alternativa: proyecto/env/Lib/site-packages/osgeo
+            os.path.join(current_dir, '..', '..', '..', 'env', 'Lib', 'site-packages', 'osgeo'),
+            
+            # Para entornos virtuales en otras ubicaciones
+            os.path.join(sys.prefix, 'Lib', 'site-packages', 'osgeo')
+        ]
+        
+        for path in possible_paths:
+            abs_path = os.path.abspath(path)
+            gdal_dll = os.path.join(abs_path, 'gdal.dll')
+            if os.path.exists(gdal_dll):
+                return abs_path
+        
+        return None
     
-    # 2. Definimos el nombre exacto del DLL (REVISA TU CARPETA SI ES 304, 308, 310...)
-    GDAL_DLL_NAME = 'gdal.dll' 
-
-    # 3. Configuración del entorno
-    os.environ['PATH'] = OSGEO_PATH + ';' + os.environ['PATH']
-    os.environ['PROJ_LIB'] = os.path.join(OSGEO_PATH, 'data', 'proj')
+    OSGEO_PATH = find_osgeo_path()
+    
+    if OSGEO_PATH and OSGEO_PATH not in os.environ['PATH']:
+        os.environ['PATH'] = OSGEO_PATH + ';' + os.environ['PATH']
+        os.add_dll_directory(OSGEO_PATH)
+    
+    GDAL_DLL_NAME = 'gdal.dll'
     
     # 4. CRITICO PARA PYTHON 3.8+: Añadir directorio de DLLs de forma segura
     try:
@@ -163,4 +188,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN")
-
