@@ -8,30 +8,59 @@ import { MetricsGrid } from "@/components/metrics-grid"
 import { ControlPanel } from "@/components/control-panel"
 import { getTrafficPoints, getCurrentMetrics } from "@/lib/traffic-data"
 import { Skeleton } from "@/components/ui/skeleton"
+// 👇 la usaremos cuando creemos el helper de Matrix
+import { getMatrixData } from "@/lib/matrix"
 
-const MapDisplay = dynamic(() => import("@/components/map-display").then((mod) => ({ default: mod.MapDisplay })), {
-  ssr: false,
-  loading: () => <Skeleton className="w-full h-full rounded-lg" />,
-})
+const MapDisplay = dynamic(
+  () => import("@/components/map-display").then((mod) => ({ default: mod.MapDisplay })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="w-full h-full rounded-lg" />,
+  },
+)
 
 export default function DashboardPage() {
-  const [trafficPoints, setTrafficPoints] = useState([])
-  const [metrics, setMetrics] = useState(null)
+  const [trafficPoints, setTrafficPoints] = useState<any[]>([])
+  const [metrics, setMetrics] = useState<any | null>(null)
   const [avgCongestion, setAvgCongestion] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
 
+
+  const [matrixData, setMatrixData] = useState<any | null>(null)
+  const [matrixError, setMatrixError] = useState<string | null>(null)
+
   useEffect(() => {
-    const loadData = () => {
-      const points = getTrafficPoints()
-      setTrafficPoints(points)
+    const loadData = async () => {
+      try {
+        setIsLoading(true)
+        setMatrixError(null)
 
-      const currentMetrics = getCurrentMetrics()
-      setMetrics(currentMetrics)
 
-      const avgCong = points.reduce((acc, p) => acc + p.congestion, 0) / points.length
-      setAvgCongestion(avgCong)
+        const points = await getTrafficPoints()
+        setTrafficPoints(points)
 
-      setIsLoading(false)
+        const currentMetrics = getCurrentMetrics(points)
+        setMetrics(currentMetrics)
+
+        const avgCong = points.reduce((acc: number, p: any) => acc + p.congestion, 0) / points.length
+        setAvgCongestion(avgCong)
+
+
+        if (points.length >= 2) {
+          const coordinates = points.map((p: any) => ({
+            lat: p.lat,
+            lng: p.lng,
+          }))
+
+          const matrix = await getMatrixData(coordinates)
+          setMatrixData(matrix)
+        }
+      } catch (error) {
+        console.error("Error cargando datos:", error)
+        setMatrixError("No se pudo cargar la información de tráfico o la matriz de tiempos.")
+      } finally {
+        setIsLoading(false)
+      }
     }
 
     loadData()
@@ -51,6 +80,17 @@ export default function DashboardPage() {
     )
   }
 
+
+  let tiempoRuta1 = null
+  let tiempoRuta2 = null
+
+  if (matrixData?.durations && matrixData.durations.length > 0) {
+
+    const row0 = matrixData.durations[0]
+    if (row0[1] != null) tiempoRuta1 = Math.round(row0[1] / 60) // en minutos
+    if (row0[2] != null) tiempoRuta2 = Math.round(row0[2] / 60)
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
@@ -59,6 +99,31 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Metrics Grid */}
           {metrics && <MetricsGrid metrics={metrics} congestionLevel={Math.round(avgCongestion)} />}
+
+          {/* Bloque simple para mostrar tiempos de Matrix */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-card border border-border rounded-lg p-4">
+              <h2 className="text-sm font-semibold mb-2">Tiempos entre rutas (Matrix API)</h2>
+              {matrixError && <p className="text-xs text-red-500">{matrixError}</p>}
+              {!matrixError && !matrixData && <p className="text-xs text-muted-foreground">Cargando matriz...</p>}
+
+              {matrixData && (
+                <div className="space-y-1 text-xs">
+                  {tiempoRuta1 !== null && (
+                    <p>
+                      Ruta 1 (origen → punto 2): <span className="font-semibold">{tiempoRuta1} min</span>
+                    </p>
+                  )}
+                  {tiempoRuta2 !== null && (
+                    <p>
+                      Ruta 2 (origen → punto 3): <span className="font-semibold">{tiempoRuta2} min</span>
+                    </p>
+                  )}
+                  {!tiempoRuta1 && !tiempoRuta2 && <p>No hay suficientes puntos para calcular rutas.</p>}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -80,7 +145,7 @@ export default function DashboardPage() {
             <div className="lg:col-span-3">
               <h2 className="text-xl font-semibold mb-4">Estado de Puntos de Monitoreo</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {trafficPoints.map((point) => (
+                {trafficPoints.map((point: any) => (
                   <div key={point.id} className="bg-card border border-border rounded-lg p-4">
                     <h3 className="font-semibold text-sm mb-3 line-clamp-2">{point.name}</h3>
                     <div className="space-y-2 text-sm">

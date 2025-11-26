@@ -1,3 +1,6 @@
+// ---------------------------
+// Tipos de datos
+// ---------------------------
 export interface TrafficPoint {
   id: string
   name: string
@@ -17,122 +20,16 @@ export interface TrafficMetrics {
   status: string
 }
 
-export interface HourlyData {
-  hour: number
-  vehicles: number
-  avgSpeed: number
-  congestion: number
-}
-
-export interface DailyComparison {
-  day: string
-  trafficVolume: number
-  avgCongestion: number
-}
-
-export interface Segmento {
-  id: string
+export interface SegmentoAPI {
+  id: number
   nombre: string
   coordenadas: { lat: number; lng: number }
-  geometria: [number, number][]
   longitud_km: number
 }
 
-const TRAFFIC_POINTS: TrafficPoint[] = [
-  {
-    id: "point-1",
-    name: "Entrada Los Chorros",
-    lat: 13.738,
-    lng: -89.21,
-    status: "moderado",
-    congestion: 45,
-    avgSpeed: 65,
-    vehiclesPerHour: 1200,
-  },
-  {
-    id: "point-2",
-    name: "Centro Los Chorros",
-    lat: 13.739,
-    lng: -89.208,
-    status: "congestionado",
-    congestion: 72,
-    avgSpeed: 35,
-    vehiclesPerHour: 2100,
-  },
-  {
-    id: "point-3",
-    name: "Salida Norte",
-    lat: 13.74,
-    lng: -89.206,
-    status: "fluido",
-    congestion: 20,
-    avgSpeed: 85,
-    vehiclesPerHour: 800,
-  },
-  {
-    id: "point-4",
-    name: "Carril Alterno",
-    lat: 13.737,
-    lng: -89.212,
-    status: "moderado",
-    congestion: 38,
-    avgSpeed: 72,
-    vehiclesPerHour: 950,
-  },
-]
-
-const SEGMENTOS: Segmento[] = [
-  {
-    id: "seg-1",
-    nombre: "Tramo 1: Sta. Tecla",
-    coordenadas: { lat: 13.737, lng: -89.212 },
-    geometria: [
-      [13.737, -89.212],
-      [13.7375, -89.211],
-    ],
-    longitud_km: 0.5,
-  },
-  {
-    id: "seg-2",
-    nombre: "Tramo 2: Descenso Principal",
-    coordenadas: { lat: 13.738, lng: -89.21 },
-    geometria: [
-      [13.7375, -89.211],
-      [13.739, -89.208],
-    ],
-    longitud_km: 0.8,
-  },
-  {
-    id: "seg-3",
-    nombre: "Tramo 3: Curvas",
-    coordenadas: { lat: 13.7395, lng: -89.207 },
-    geometria: [
-      [13.739, -89.208],
-      [13.74, -89.206],
-    ],
-    longitud_km: 0.6,
-  },
-  {
-    id: "seg-4",
-    nombre: "Tramo 4: Colón",
-    coordenadas: { lat: 13.74, lng: -89.206 },
-    geometria: [
-      [13.74, -89.206],
-      [13.7405, -89.205],
-    ],
-    longitud_km: 0.4,
-  },
-]
-
-export function getTrafficPoints(): TrafficPoint[] {
-  return TRAFFIC_POINTS.map((point) => ({
-    ...point,
-    congestion: Math.max(0, Math.min(100, point.congestion + (Math.random() - 0.5) * 20)),
-    avgSpeed: Math.max(10, Math.min(100, point.avgSpeed + (Math.random() - 0.5) * 15)),
-    vehiclesPerHour: Math.max(500, point.vehiclesPerHour + Math.floor((Math.random() - 0.5) * 400)),
-  }))
-}
-
+// ---------------------------
+// Status helpers
+// ---------------------------
 export function getTrafficStatus(congestion: number): "fluido" | "moderado" | "congestionado" | "colapsado" {
   if (congestion < 30) return "fluido"
   if (congestion < 50) return "moderado"
@@ -170,38 +67,100 @@ export function getStatusLabel(status: string): string {
   }
 }
 
-export function generateHourlyData(): HourlyData[] {
-  const hours = []
-  const peakHours = [7, 8, 17, 18] // 7-8am and 5-6pm peak hours
+// ---------------------------
+// Obtener puntos REALES desde Django
+// ---------------------------
+export async function getTrafficPoints(): Promise<TrafficPoint[]> {
+  const response = await fetch("http://127.0.0.1:8000/segmentos/", {
+    cache: "no-store",
+  })
 
-  for (let i = 0; i < 24; i++) {
-    const isPeakHour = peakHours.includes(i)
-    hours.push({
-      hour: i,
-      vehicles: isPeakHour ? 2500 + Math.random() * 1000 : 800 + Math.random() * 600,
-      avgSpeed: isPeakHour ? 35 + Math.random() * 20 : 75 + Math.random() * 15,
-      congestion: isPeakHour ? 65 + Math.random() * 25 : 25 + Math.random() * 30,
-    })
+  if (!response.ok) {
+    throw new Error("Error obteniendo segmentos del backend")
   }
-  return hours
+
+  const data = await response.json()
+  let segmentos: any[] = []
+
+  // 1) Si el backend devuelve un array plano: [ { id, nombre, coordenadas, ... }, ... ]
+  if (Array.isArray(data)) {
+    segmentos = data
+  }
+  // 2) Si el backend usa paginación de DRF: { count, results: [...] }
+  else if (data && Array.isArray(data.results)) {
+    segmentos = data.results
+  }
+  // 3) Si el backend devuelve GeoJSON: { type: "FeatureCollection", features: [...] }
+  else if (data && Array.isArray(data.features)) {
+    segmentos = data.features.map((f: any) => {
+      const coords = f.geometry?.coordinates
+
+      // Si es LineString: [[lng, lat], [lng, lat], ...]
+      let lat = 0
+      let lng = 0
+
+      if (Array.isArray(coords) && Array.isArray(coords[0])) {
+        lng = coords[0][0]
+        lat = coords[0][1]
+      } else if (Array.isArray(coords)) {
+        // Por si fuera Point: [lng, lat]
+        lng = coords[0]
+        lat = coords[1]
+      }
+
+      return {
+        id: f.id ?? f.properties?.id ?? f.properties?.segmento_id,
+        nombre: f.properties?.nombre ?? f.properties?.segmento_nombre ?? "Segmento sin nombre",
+        coordenadas: { lat, lng },
+        longitud_km: f.properties?.longitud_km ?? 1,
+      }
+    })
+  } else {
+    console.error("Formato de respuesta inesperado de /segmentos/:", data)
+    return []
+  }
+
+  // Convertimos segmentos genéricos a TrafficPoint
+  return segmentos.map((seg: any) => {
+    const lat = seg.coordenadas?.lat ?? seg.lat ?? 0
+    const lng = seg.coordenadas?.lng ?? seg.lng ?? 0
+
+    const congestion = Math.floor(Math.random() * 60) + 10
+    const avgSpeed = Math.floor(Math.random() * 60) + 20
+    const vehicles = Math.floor(Math.random() * 2000) + 500
+
+    return {
+      id: String(seg.id ?? seg.segmento_id ?? crypto.randomUUID()),
+      name: seg.nombre ?? seg.segmento_nombre ?? "Segmento sin nombre",
+      lat,
+      lng,
+      congestion,
+      avgSpeed,
+      vehiclesPerHour: vehicles,
+      status: getTrafficStatus(congestion),
+    } as TrafficPoint
+  })
 }
 
-export function generateDailyComparison(): DailyComparison[] {
-  const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-  return days.map((day) => ({
-    day,
-    trafficVolume: 18000 + Math.random() * 8000,
-    avgCongestion: 45 + Math.random() * 25,
-  }))
-}
+// ---------------------------
+// Calcular métricas con puntos reales
+// ---------------------------
+export function getCurrentMetrics(points: TrafficPoint[]): TrafficMetrics {
+  if (!points || points.length === 0) {
+    return {
+      timestamp: new Date(),
+      totalVehicles: 0,
+      avgSpeed: 0,
+      estimatedTime: 0,
+      status: "Desconocido",
+    }
+  }
 
-export function getCurrentMetrics(): TrafficMetrics {
-  const points = getTrafficPoints()
   const avgCongestion = points.reduce((acc, p) => acc + p.congestion, 0) / points.length
   const avgSpeed = points.reduce((acc, p) => acc + p.avgSpeed, 0) / points.length
   const totalVehicles = points.reduce((acc, p) => acc + p.vehiclesPerHour, 0)
 
-  // Estimate time: 12km / average speed
+  // Para cálculo simple: 12 km / velocidad promedio
   const estimatedTime = Math.round((12 / avgSpeed) * 60)
 
   return {
@@ -211,4 +170,45 @@ export function getCurrentMetrics(): TrafficMetrics {
     estimatedTime,
     status: getStatusLabel(getTrafficStatus(avgCongestion)),
   }
+}
+
+// ---------------------------
+// Datos simulados extra (pueden quedarse si aún usas gráficas)
+// ---------------------------
+export interface HourlyData {
+  hour: number
+  vehicles: number
+  avgSpeed: number
+  congestion: number
+}
+
+export function generateHourlyData(): HourlyData[] {
+  const hours = []
+  const peak = [7, 8, 17, 18]
+
+  for (let i = 0; i < 24; i++) {
+    const onPeak = peak.includes(i)
+    hours.push({
+      hour: i,
+      vehicles: onPeak ? 2500 + Math.random() * 1000 : 800 + Math.random() * 600,
+      avgSpeed: onPeak ? 35 + Math.random() * 20 : 75 + Math.random() * 15,
+      congestion: onPeak ? 65 + Math.random() * 25 : 25 + Math.random() * 30,
+    })
+  }
+  return hours
+}
+
+export interface DailyComparison {
+  day: string
+  trafficVolume: number
+  avgCongestion: number
+}
+
+export function generateDailyComparison(): DailyComparison[] {
+  const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+  return days.map((day) => ({
+    day,
+    trafficVolume: 18000 + Math.random() * 8000,
+    avgCongestion: 45 + Math.random() * 25,
+  }))
 }
