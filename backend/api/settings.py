@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if os.name == 'nt':
     # 1. Definimos la ruta EXACTA a la carpeta osgeo dentro de backend/env
     # NOTA: Ajusta 'gdal304.dll' si tu archivo tiene otro número (ej. gdal308.dll)
-    OSGEO_PATH = r'C:\Users\Laptop_hp\Desktop\project_predict-traffic\backend\env\Lib\site-packages\osgeo'
+    OSGEO_PATH = r'C:\project_predict-traffic\backend\env\Lib\site-packages\osgeo'
     
     # 2. Definimos el nombre exacto del DLL (REVISA TU CARPETA SI ES 304, 308, 310...)
     GDAL_DLL_NAME = 'gdal.dll' 
@@ -162,3 +162,5 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
+MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN")
+

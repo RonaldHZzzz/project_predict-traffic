@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from trafico.views import Segmentos, MedicionList
+from trafico.views import Segmentos, MedicionList,matrix_api
 
 # --- Configuración de Swagger ---
 schema_view = get_schema_view(
@@ -22,6 +22,9 @@ urlpatterns = [
     # 1. Endpoints de Datos
     path('segmentos/', Segmentos.as_view(), name='segmentos'),
     path('mediciones/', MedicionList.as_view(), name='mediciones-list'),
+    
+    # 2. Endpoint para Matrix API (Mapbox)
+    path('matrix/', matrix_api, name='matrix-api'),
 
     # 2. Documentación Swagger (UI)
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),

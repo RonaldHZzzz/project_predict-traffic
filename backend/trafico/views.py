@@ -1,3 +1,10 @@
+import os
+import requests
+from django.conf import settings
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 from rest_framework import generics
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Segmento, MedicionTrafico
@@ -27,3 +34,55 @@ class MedicionList(generics.ListAPIView):
     # Configuración de Filtros (ej: /api/mediciones/?segmento=1)
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['segmento', 'nivel_congestion']
+
+@swagger_auto_schema(
+    method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'coordinates': openapi.Schema(
+                type=openapi.TYPE_ARRAY,
+                items=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'lat': openapi.Schema(type=openapi.TYPE_NUMBER, example=13.676),
+                        'lng': openapi.Schema(type=openapi.TYPE_NUMBER, example=-89.29),
+                    }
+                ),
+                example=[
+                    {"lat": 13.676, "lng": -89.29},
+                    {"lat": 13.680, "lng": -89.300},
+                    {"lat": 13.692, "lng": -89.315}
+                ]
+            ),
+        },
+        required=['coordinates']
+    )
+)
+
+@api_view(['POST'])
+def matrix_api(request):
+    """
+    Calcula los tiempos y distancias entre varios puntos usando Mapbox Matrix API.
+    """
+    coordinates = request.data.get("coordinates", None)
+
+    if not coordinates or len(coordinates) < 2:
+        return Response({"error": "Debes enviar al menos dos coordenadas."}, status=400)
+
+    # Construcción del string de coordenadas para Mapbox
+    coords_str = ";".join([f"{c['lng']},{c['lat']}" for c in coordinates])
+
+    # Token desde settings.py (cargado con os.getenv)
+    access_token = settings.MAPBOX_ACCESS_TOKEN
+
+    # URL de Matrix API 
+    url = (
+        f"https://api.mapbox.com/directions-matrix/v1/mapbox/driving-traffic/"
+        f"{coords_str}?annotations=duration,distance&access_token={access_token}"
+    )
+
+    response = requests.get(url)
+    data = response.json()
+
+    return Response(data)
