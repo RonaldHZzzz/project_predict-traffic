@@ -105,6 +105,7 @@ INSTALLED_APPS = [
 
     # Tu app
     'trafico',
+    'factores_externos',
 ]
 
 MIDDLEWARE = [

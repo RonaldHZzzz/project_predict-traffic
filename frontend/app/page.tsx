@@ -10,6 +10,7 @@ import { getTrafficPoints, getCurrentMetrics } from "@/lib/traffic-data"
 import { Skeleton } from "@/components/ui/skeleton"
 // 👇 la usaremos cuando creemos el helper de Matrix
 import { getMatrixData } from "@/lib/matrix"
+import 'leaflet/dist/leaflet.css';
 
 const MapDisplay = dynamic(
   () => import("@/components/map-display").then((mod) => ({ default: mod.MapDisplay })),
@@ -23,52 +24,64 @@ export default function DashboardPage() {
   const [trafficPoints, setTrafficPoints] = useState<any[]>([])
   const [metrics, setMetrics] = useState<any | null>(null)
   const [avgCongestion, setAvgCongestion] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
-
-
+  
+  // Estado para la carga inicial (muestra skeletons)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+  
   const [matrixData, setMatrixData] = useState<any | null>(null)
   const [matrixError, setMatrixError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true)
+  // Función separada para cargar datos
+  const fetchData = async (isFirstLoad = false) => {
+    try {
+      if (isFirstLoad) {
+        setIsInitialLoading(true)
         setMatrixError(null)
+      }
 
+      const points = await getTrafficPoints()
+      setTrafficPoints(points)
 
-        const points = await getTrafficPoints()
-        setTrafficPoints(points)
+      const currentMetrics = getCurrentMetrics(points)
+      setMetrics(currentMetrics)
 
-        const currentMetrics = getCurrentMetrics(points)
-        setMetrics(currentMetrics)
+      const avgCong = points.reduce((acc: number, p: any) => acc + p.congestion, 0) / points.length
+      setAvgCongestion(avgCong)
 
-        const avgCong = points.reduce((acc: number, p: any) => acc + p.congestion, 0) / points.length
-        setAvgCongestion(avgCong)
+      if (points.length >= 2) {
+        const coordinates = points.map((p: any) => ({
+          lat: p.lat,
+          lng: p.lng,
+        }))
 
-
-        if (points.length >= 2) {
-          const coordinates = points.map((p: any) => ({
-            lat: p.lat,
-            lng: p.lng,
-          }))
-
-          const matrix = await getMatrixData(coordinates)
-          setMatrixData(matrix)
-        }
-      } catch (error) {
-        console.error("Error cargando datos:", error)
-        setMatrixError("No se pudo cargar la información de tráfico o la matriz de tiempos.")
-      } finally {
-        setIsLoading(false)
+        const matrix = await getMatrixData(coordinates)
+        setMatrixData(matrix)
+      }
+    } catch (error) {
+      console.error("Error cargando datos:", error)
+      if (isFirstLoad) {
+         setMatrixError("No se pudo cargar la información de tráfico o la matriz de tiempos.")
+      }
+    } finally {
+      if (isFirstLoad) {
+        setIsInitialLoading(false)
       }
     }
+  }
 
-    loadData()
-    const interval = setInterval(loadData, 30000)
+  useEffect(() => {
+    // Carga inicial
+    fetchData(true)
+
+    // Intervalo para refrescar datos sin mostrar skeleton
+    const interval = setInterval(() => {
+      fetchData(false)
+    }, 30000)
+
     return () => clearInterval(interval)
   }, [])
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
@@ -80,12 +93,10 @@ export default function DashboardPage() {
     )
   }
 
-
   let tiempoRuta1 = null
   let tiempoRuta2 = null
 
   if (matrixData?.durations && matrixData.durations.length > 0) {
-
     const row0 = matrixData.durations[0]
     if (row0[1] != null) tiempoRuta1 = Math.round(row0[1] / 60) // en minutos
     if (row0[2] != null) tiempoRuta2 = Math.round(row0[2] / 60)
@@ -130,7 +141,8 @@ export default function DashboardPage() {
             {/* Map - Takes 2 columns */}
             <div className="lg:col-span-2">
               <div className="bg-card rounded-lg border border-border overflow-hidden" style={{ height: "500px" }}>
-                {trafficPoints.length > 0 && <MapDisplay points={trafficPoints} />}
+                {/* Renderizamos el mapa siempre que no sea carga inicial */}
+                <MapDisplay points={trafficPoints} />
               </div>
             </div>
 
