@@ -1,4 +1,5 @@
 from django.urls import path
+from django.contrib import admin
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -20,6 +21,7 @@ schema_view = get_schema_view(
 # --- Rutas de la API ---
 urlpatterns = [
     # 1. Endpoints de Datos
+    path('admin/',admin.site.urls),
     path('segmentos/', Segmentos.as_view(), name='segmentos'),
     path('mediciones/', MedicionList.as_view(), name='mediciones-list'),
     

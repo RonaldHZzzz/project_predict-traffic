@@ -65,7 +65,8 @@ if os.name == 'nt':
         pass # En versiones viejas de Python esto no existe, pero tú usas 3.12 así que funcionará
 
     # 5. Ruta final para Django
-    GDAL_LIBRARY_PATH = os.path.join(OSGEO_PATH, GDAL_DLL_NAME)
+    GDAL_LIBRARY_PATH = r"C:\Users\henry\AppData\Local\Programs\OSGeo4W\bin\gdal312.dll"
+    GEOS_LIBRARY_PATH = r"C:\Users\henry\AppData\Local\Programs\OSGeo4W\bin\geos_c.dll"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -82,19 +83,25 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    # Django core
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
-    'rest_framework_gis',
+
+    # GIS - DEBE IR ANTES DE APP
     'django.contrib.gis',
+
+    # Terceros
+    'rest_framework',
     'corsheaders',
-    'trafico',
     'drf_yasg',
     'django_filters',
+
+    # Tu app
+    'trafico',
 ]
 
 MIDDLEWARE = [
