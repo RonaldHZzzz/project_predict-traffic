@@ -1,21 +1,21 @@
 "use client";
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card"
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
-    Field,
-    FieldDescription,
-    FieldGroup,
-    FieldLabel,
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { use, useState } from "react"
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 export function LoginForm({
   className,
   ...props
@@ -43,21 +43,19 @@ export function LoginForm({
       });
 
       const data = await res.json();
-      
 
       if (!res.ok) {
         setError("Credenciales incorrectas");
         setLoading(false);
-        document.cookie = `access=${data.access}; path=/`;
-        document.cookie = `refresh=${data.refresh}; path=/`;
         return;
       }
-      
 
-
-      // Guardar token
-      localStorage.setItem("access", data.access);
-      localStorage.setItem("refresh", data.refresh);
+      // Guardar tokens en cookies
+      const maxAge = 7 * 24 * 60 * 60; // 7 días
+      document.cookie = `access=${data.access}; path=/; max-age=${maxAge}; samesite=lax`;
+      document.cookie = `refresh=${data.refresh}; path=/; max-age=${
+        maxAge * 4
+      }; samesite=lax`;
 
       // Redirigir al dashboard
       window.location.href = "/";
@@ -74,9 +72,7 @@ export function LoginForm({
       <Card>
         <CardHeader>
           <CardTitle>Inicia sesión en tu cuenta</CardTitle>
-          <CardDescription>
-            
-          </CardDescription>
+          <CardDescription></CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin}>
@@ -101,15 +97,19 @@ export function LoginForm({
                     ¿Olvidaste tu contraseña?
                   </a>
                 </div>
-                <Input 
-                  id="password" 
-                  type="password" 
+                <Input
+                  id="password"
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required 
+                  required
                 />
               </Field>
-              {error && <FieldDescription className="text-red-500">{error}</FieldDescription>}
+              {error && (
+                <FieldDescription className="text-red-500">
+                  {error}
+                </FieldDescription>
+              )}
               <Field>
                 <Button type="submit" disabled={loading}>
                   {loading ? "Iniciando sesión..." : "Iniciar sesión"}

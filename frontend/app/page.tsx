@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Header } from "@/components/header";
 import { MetricsGrid } from "@/components/metrics-grid";
@@ -92,56 +92,82 @@ export default function DashboardPage() {
   const [matrixData, setMatrixData] = useState<any | null>(null);
   const [matrixError, setMatrixError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        setMatrixError(null);
+  // Ref para manejar el intervalo
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-        const points = await getTrafficPoints(); //
-        setTrafficPoints(points);
+  const loadData = async (segmentId?: number | null) => {
+    try {
+      setIsLoading(true);
+      setMatrixError(null);
 
-        const segs = await getSegmentos(); //
-        setSegmentos(segs);
+      const points = await getTrafficPoints();
+      setTrafficPoints(points);
 
-        const currentMetrics = getCurrentMetrics(points);
-        setMetrics(currentMetrics);
+      const segs = await getSegmentos();
+      setSegmentos(segs);
 
-        const avgCong =
-          points.reduce((acc: number, p: any) => acc + p.congestion, 0) /
-          (points.length || 1);
-        setAvgCongestion(avgCong);
+      const currentMetrics = getCurrentMetrics(points);
+      setMetrics(currentMetrics);
 
-        if (points.length >= 2) {
-          const coordinates = points.map((p: any) => ({
-            lat: p.lat,
-            lng: p.lng,
-          }));
+      const avgCong =
+        points.reduce((acc: number, p: any) => acc + p.congestion, 0) /
+        (points.length || 1);
+      setAvgCongestion(avgCong);
 
-          const matrix = await getMatrixData(coordinates.slice(0, 10));
-          setMatrixData(matrix);
-        }
-      } catch (error) {
-        console.error("Error cargando datos:", error);
-        setMatrixError(
-          "No se pudo cargar la información de tráfico o la matriz de tiempos."
-        );
-      } finally {
-        setIsLoading(false);
+      if (points.length >= 2) {
+        const coordinates = points.map((p: any) => ({
+          lat: p.lat,
+          lng: p.lng,
+        }));
+
+        const matrix = await getMatrixData(coordinates.slice(0, 10));
+        setMatrixData(matrix);
       }
-    };
+    } catch (error) {
+      console.error("Error cargando datos:", error);
+      setMatrixError(
+        "No se pudo cargar la información de tráfico o la matriz de tiempos."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // Función para limpiar el intervalo
+  const clearDataInterval = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  // Función para establecer el intervalo
+  const setDataInterval = () => {
+    clearDataInterval();
+    intervalRef.current = setInterval(() => loadData(), 30000);
+  };
+
+  useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
+    setDataInterval();
+    
+    return () => clearDataInterval();
   }, []);
 
   // --- NUEVO: Manejador para la selección de segmentos ---
-  // Esta función se pasa al componente MapDisplay
   const handleSegmentSelect = (id: number | null) => {
     setSelectedSegmentId(id);
-    // Opcional: Si seleccionas un tramo, limpiamos la selección de puntos para evitar confusión visual
-    if (id) setSelectedPointId(null);
+    
+    if (id) {
+      // Si se selecciona un segmento, cargar datos específicos y detener el intervalo
+      setSelectedPointId(null);
+      clearDataInterval();
+      loadData(id);
+    } else {
+      // Si se deselecciona, volver a la carga normal con intervalo
+      loadData();
+      setDataInterval();
+    }
   };
 
   // Calculamos tiempos de ruta
