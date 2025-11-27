@@ -31,12 +31,12 @@ if os.name == 'nt':
         # Buscar en las posibles ubicaciones del entorno virtual
         possible_paths = [
             # Estructura típica: proyecto/backend/env/Lib/site-packages/osgeo
-            os.path.join(current_dir, 'env', 'Lib', 'site-packages', 'osgeo'),
+            os.path.join(current_dir, 'env','venv','.venv', 'Lib', 'site-packages', 'osgeo'),
             os.path.join(current_dir, '..', 'env', 'Lib', 'site-packages', 'osgeo'),
             os.path.join(current_dir, '..', '..', 'env', 'Lib', 'site-packages', 'osgeo'),
             
             # Estructura alternativa: proyecto/env/Lib/site-packages/osgeo
-            os.path.join(current_dir, '..', '..', '..', 'env', 'Lib', 'site-packages', 'osgeo'),
+            os.path.join(current_dir, '..', '..', '..', 'env','.venv', 'Lib', 'site-packages', 'osgeo'),
             
             # Para entornos virtuales en otras ubicaciones
             os.path.join(sys.prefix, 'Lib', 'site-packages', 'osgeo')
@@ -59,10 +59,11 @@ if os.name == 'nt':
     GDAL_DLL_NAME = 'gdal.dll'
     
     # 4. CRITICO PARA PYTHON 3.8+: Añadir directorio de DLLs de forma segura
-    try:
-        os.add_dll_directory(OSGEO_PATH)
-    except AttributeError:
-        pass # En versiones viejas de Python esto no existe, pero tú usas 3.12 así que funcionará
+    if OSGEO_PATH:
+        try:
+            os.add_dll_directory(OSGEO_PATH)
+        except AttributeError:
+            pass # En versiones viejas de Python esto no existe, pero tú usas 3.12 así que funcionará
 
 
 # os.path.expanduser('~') obtiene la carpeta del usuario actual (ej. C:\Users\Juan)
@@ -105,6 +106,7 @@ INSTALLED_APPS = [
 
     # Tu app
     'trafico',
+    'factores_externos',
 ]
 
 MIDDLEWARE = [
