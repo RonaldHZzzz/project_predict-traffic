@@ -1,16 +1,23 @@
 from rest_framework import serializers
-from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from .models import Segmento, MedicionTrafico
 
-class SegmentoMapSerializer(GeoFeatureModelSerializer):
+class SegmentoMapSerializer(serializers.ModelSerializer):
     """
     Serializador para el MAPA. 
-    Convierte los datos en formato GeoJSON estándar que Leaflet/Mapbox entienden.
+    Retorna los segmentos con geometría como array de pares de coordenadas [lng, lat].
     """
+    geometry = serializers.SerializerMethodField()
+    
+    def get_geometry(self, obj):
+        """Extrae las coordenadas de la LineString como array de pares [lng, lat]"""
+        if obj.geometria:
+            coords = list(obj.geometria.coords)
+            return coords  # Retorna [(lng, lat), (lng, lat), ...]
+        return None
+    
     class Meta:
         model = Segmento
-        geo_field = "geometria"
-        fields = ('segmento_id', 'nombre')
+        fields = ('segmento_id', 'nombre', 'geometry')
 
 class MedicionStatsSerializer(serializers.ModelSerializer):
     """
