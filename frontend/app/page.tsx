@@ -247,7 +247,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none" />
+      <div className="absolute inset-0 z-0 bg-linear-to-b from-black/60 via-transparent to-black/80 pointer-events-none" />
 
       {/* CAPA 2: CONTENIDO FLOTANTE (HUD) */}
       <div className="relative z-10 w-full h-full flex flex-col pointer-events-none p-4 md:p-6 overflow-y-auto md:overflow-hidden">

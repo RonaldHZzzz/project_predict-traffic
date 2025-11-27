@@ -5,6 +5,7 @@ import { MapPin, Menu, Activity, TrendingUp, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -13,7 +14,10 @@ export function Header() {
     document.cookie = "access=; path=/; max-age=0";
     document.cookie = "refresh=; path=/; max-age=0";
     window.location.href = "/login";
+    localStorage.removeItem("user");
   };
+
+  const userName = localStorage.getItem("user");
 
   // Link helper para mantener el código limpio
   const NavLink = ({ href, icon: Icon, children }: any) => (
@@ -62,7 +66,7 @@ export function Header() {
             Admin
           </NavLink>
           <Button variant="ghost" onClick={handleLogout}>
-            Cerrar sesion
+            { userName ? `Cerrar sesión (${JSON.parse(userName)})` : "Cerrar sesión" }
           </Button>
         </nav>
 

@@ -43,6 +43,7 @@ export function LoginForm({
       });
 
       const data = await res.json();
+      console.log(data);
 
       if (!res.ok) {
         setError("Credenciales incorrectas");
@@ -56,6 +57,7 @@ export function LoginForm({
       document.cookie = `refresh=${data.refresh}; path=/; max-age=${
         maxAge * 4
       }; samesite=lax`;
+      localStorage.setItem("user", JSON.stringify(data.name));
 
       // Redirigir al dashboard
       window.location.href = "/";
@@ -115,7 +117,7 @@ export function LoginForm({
                   {loading ? "Iniciando sesión..." : "Iniciar sesión"}
                 </Button>
                 <FieldDescription className="text-center">
-                  ¿No tienes una cuenta? <a href="#">Regístrate</a>
+                  ¿No tienes una cuenta? <a href="/signup">Regístrate</a>
                 </FieldDescription>
               </Field>
             </FieldGroup>
