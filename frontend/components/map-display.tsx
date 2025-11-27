@@ -1,8 +1,20 @@
 "use client";
 import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import dynamic from "next/dynamic";
 import { useMemo } from "react";
 import type { TrafficPoint, Segmento } from "@/lib/traffic-data";
+
+// Fix Leaflet marker icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+});
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
@@ -12,6 +24,11 @@ const TileLayer = dynamic(
   () => import("react-leaflet").then((mod) => mod.TileLayer),
   { ssr: false }
 );
+// const Marker = dynamic(
+//   () => import("react-leaflet").then((mod) => mod.Marker),
+//   { ssr: false }
+// );
+
 const Marker = dynamic(
   () => import("react-leaflet").then((mod) => mod.Marker),
   { ssr: false }
