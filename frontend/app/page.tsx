@@ -15,11 +15,7 @@ import { getMatrixData } from "@/lib/matrix";
 import { cn } from "@/lib/utils";
 import { CarFront, Gauge, Navigation } from "lucide-react";
 
-
-// CORRECCIÓN DEFINITIVA:
-// 1. Usamos .then() para extraer la exportación nombrada 'MapDisplay'.
-// 2. Usamos (mod: any) para evitar que TypeScript se queje si no detecta los tipos.
-// Esto soluciona tanto el error de compilación como el de ejecución.
+// Importamos los tipos
 import type { MapDisplayProps } from "@/components/map-display";
 
 const MapDisplay = dynamic<MapDisplayProps>(
@@ -30,6 +26,7 @@ const MapDisplay = dynamic<MapDisplayProps>(
     loading: () => <Skeleton className="w-full h-full bg-slate-900/50" />,
   }
 );
+
 // Componente reutilizable para el efecto "Liquid Glass"
 const GlassCard = ({
   children,
@@ -86,8 +83,11 @@ export default function DashboardPage() {
   const [avgCongestion, setAvgCongestion] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Estado para la selección interactiva
+  // Estado para la selección interactiva de Puntos
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+  
+  // --- NUEVO: Estado para la selección interactiva de Segmentos (Tramos) ---
+  const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(null);
 
   const [matrixData, setMatrixData] = useState<any | null>(null);
   const [matrixError, setMatrixError] = useState<string | null>(null);
@@ -98,10 +98,10 @@ export default function DashboardPage() {
         setIsLoading(true);
         setMatrixError(null);
 
-        const points = await getTrafficPoints();
+        const points = await getTrafficPoints(); //
         setTrafficPoints(points);
 
-        const segs = await getSegmentos();
+        const segs = await getSegmentos(); //
         setSegmentos(segs);
 
         const currentMetrics = getCurrentMetrics(points);
@@ -135,6 +135,14 @@ export default function DashboardPage() {
     const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // --- NUEVO: Manejador para la selección de segmentos ---
+  // Esta función se pasa al componente MapDisplay
+  const handleSegmentSelect = (id: number | null) => {
+    setSelectedSegmentId(id);
+    // Opcional: Si seleccionas un tramo, limpiamos la selección de puntos para evitar confusión visual
+    if (id) setSelectedPointId(null);
+  };
 
   // Calculamos tiempos de ruta
   let tiempoRuta1 = null;
@@ -194,7 +202,13 @@ export default function DashboardPage() {
       {/* CAPA 1: EL MAPA DE FONDO */}
       <div className="absolute inset-0 z-0">
         {!isLoading && trafficPoints.length > 0 ? (
-          <MapDisplay points={trafficPoints} segmentos={segmentos} />
+          <MapDisplay 
+            points={trafficPoints} 
+            segmentos={segmentos} 
+            // --- NUEVO: Pasamos las props de control de estado al mapa ---
+            selectedSegmentId={selectedSegmentId}
+            onSelectSegment={handleSegmentSelect}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-slate-900">
             <span className="text-white/50 animate-pulse">
@@ -309,9 +323,11 @@ export default function DashboardPage() {
                 return (
                   <GlassCard
                     key={point.id}
-                    onClick={() =>
-                      setSelectedPointId(isSelected ? null : point.id)
-                    }
+                    onClick={() => {
+                      // Al seleccionar un punto, limpiamos la selección de segmentos
+                      setSelectedPointId(isSelected ? null : point.id);
+                      setSelectedSegmentId(null);
+                    }}
                     className={cn(
                       "p-4 rounded-xl cursor-pointer hover:bg-white/5 group relative overflow-hidden",
                       isSelected
