@@ -76,7 +76,7 @@ export default function DashboardPage() {
     };
 
     loadData();
-    const interval = setInterval(loadData, 30000);
+    const interval = setInterval(loadData, 30000000); // cada 30 segundos
     return () => clearInterval(interval);
   }, []);
 
