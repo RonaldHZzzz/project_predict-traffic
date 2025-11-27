@@ -1,77 +1,138 @@
-"use client"
-import { useEffect, useMemo } from "react"
-import dynamic from "next/dynamic"
-import "leaflet/dist/leaflet.css"
-import "leaflet-defaulticon-compatibility"
-import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css"
-// We import useMap normally. It won't break build unless called during SSR without context.
-// But since MapContainer is dynamic(ssr: false), its children are safe.
-import { useMap } from "react-leaflet" 
+"use client";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import dynamic from "next/dynamic";
+import { useMemo } from "react";
+import type { TrafficPoint, Segmento } from "@/lib/traffic-data";
 
-import type { TrafficPoint } from "@/lib/traffic-data"
+// Fix Leaflet marker icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+});
 
-// Dynamic imports for components that rely on 'window'
-const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false })
-const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false })
-const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false })
-const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { ssr: false })
-// const Polyline = dynamic(() => import("react-leaflet").then((mod) => mod.Polyline), { ssr: false }) // Unused in this snippet
+const MapContainer = dynamic(
+  () => import("react-leaflet").then((mod) => mod.MapContainer),
+  { ssr: false }
+);
+const TileLayer = dynamic(
+  () => import("react-leaflet").then((mod) => mod.TileLayer),
+  { ssr: false }
+);
+// const Marker = dynamic(
+//   () => import("react-leaflet").then((mod) => mod.Marker),
+//   { ssr: false }
+// );
+
+const Marker = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Marker),
+  { ssr: false }
+);
+const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), {
+  ssr: false,
+});
+const Polyline = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Polyline),
+  { ssr: false }
+);
 
 interface MapDisplayProps {
-  points: TrafficPoint[]
+  points: TrafficPoint[];
+  segmentos?: Segmento[];
 }
 
-// Helper component to recenter map. 
-// This component uses useMap, so it MUST be rendered inside MapContainer.
-const MapUpdater = ({ center }: { center: [number, number] }) => {
-  const map = useMap() 
-  useEffect(() => {
-    if (map) map.setView(center, 15)
-  }, [center, map])
-  return null
-}
-
-export function MapDisplay({ points }: MapDisplayProps) {
-  
-  const defaultCenter: [number, number] = [13.6766, -89.2847]
-
+export function MapDisplay({ points, segmentos = [] }: MapDisplayProps) {
+  // Centro dinámico: si hay puntos, promediamos sus coordenadas
   const mapCenter = useMemo(() => {
-    if (!points || points.length === 0) return defaultCenter
+    if (!points || points.length === 0) {
+      return [13.7385, -89.209] as [number, number]; // centro por defecto
+    }
 
-    const avgLat = points.reduce((acc, p) => acc + p.lat, 0) / points.length
-    const avgLng = points.reduce((acc, p) => acc + p.lng, 0) / points.length
+    const avgLat = points.reduce((acc, p) => acc + p.lat, 0) / points.length;
+    const avgLng = points.reduce((acc, p) => acc + p.lng, 0) / points.length;
 
-    return [avgLat, avgLng] as [number, number]
-  }, [points])
+    return [avgLat, avgLng] as [number, number];
+  }, [points]);
+
+  // Función para obtener color según congestión
+  const getLineColor = (congestion: number) => {
+    if (congestion < 30) return "#10b981"; // verde (fluido)
+    if (congestion < 50) return "#f59e0b"; // amarillo (moderado)
+    if (congestion < 75) return "#ff7242"; // naranja (congestionado)
+    return "#ef4444"; // rojo (colapsado)
+  };
+
+  // Crear un mapa de congestión por segmento_id para colorear las líneas
+  const congestionBySegmento = useMemo(() => {
+    const map = new Map<number, number>();
+    points.forEach((point) => {
+      map.set(parseInt(point.id), point.congestion);
+    });
+    return map;
+  }, [points]);
 
   return (
-    <div className="h-[600px] w-full rounded-lg overflow-hidden border border-border relative z-0">
-      <MapContainer 
-        center={defaultCenter} 
-        zoom={15} 
+    <div className="h-full rounded-lg overflow-hidden border border-border">
+      <MapContainer
+        center={mapCenter}
+        zoom={13}
         style={{ height: "100%", width: "100%" }}
-        scrollWheelZoom={true}
       >
-        {/* MapUpdater is a child of MapContainer, so useMap will work fine client-side */}
-        <MapUpdater center={mapCenter} />
-
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; OpenStreetMap contributors'
         />
 
-        {points?.map((point) => (
+        {/* Renderizar cada segmento como una polyline */}
+        {segmentos.map((segmento) => {
+          // Convertir geometry de [lng, lat] a [lat, lng] para Leaflet
+          const positions = segmento.geometry.map(
+            ([lng, lat]) => [lat, lng] as [number, number]
+          );
+          const congestion =
+            congestionBySegmento.get(segmento.segmento_id) ?? 25;
+          const color = getLineColor(congestion);
+
+          return (
+            <Polyline
+              key={segmento.segmento_id}
+              positions={positions}
+              color={color}
+              weight={4}
+              opacity={0.8}
+              lineJoin="round"
+            />
+          );
+        })}
+
+        {/* Marcadores de cada punto de monitoreo */}
+        {points.map((point) => (
           <Marker key={point.id} position={[point.lat, point.lng]}>
             <Popup>
-              <div className="p-2">
-                <h3 className="font-bold">{point.name}</h3>
-                <p>Velocidad: {point.avgSpeed} km/h</p>
-                <p>Congestión: {point.congestion}%</p>
+              <div className="text-sm">
+                <p className="font-semibold">{point.name}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Estado: {point.status}
+                </p>
+                <p className="text-xs mt-1">
+                  Congestión: {Math.round(point.congestion)}%
+                </p>
+                <p className="text-xs">
+                  Velocidad: {Math.round(point.avgSpeed)} km/h
+                </p>
+                <p className="text-xs">
+                  Vehículos/h: {Math.round(point.vehiclesPerHour)}
+                </p>
               </div>
             </Popup>
           </Marker>
         ))}
       </MapContainer>
     </div>
-  )
+  );
 }
