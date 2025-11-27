@@ -1,4 +1,4 @@
-export async function getMatrixData(coordinates: { lat: number; lng: number }[]) {
+export async function getMatrixData(coordinates: { lng: number, lat: number; }[]) {
   try {
     const response = await fetch("http://127.0.0.1:8000/matrix/", {
       method: "POST",
