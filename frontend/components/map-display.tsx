@@ -29,6 +29,7 @@ const TileLayer = dynamic(
 //   { ssr: false }
 // );
 
+
 const Marker = dynamic(
   () => import("react-leaflet").then((mod) => mod.Marker),
   { ssr: false }
@@ -41,11 +42,10 @@ const Polyline = dynamic(
   { ssr: false }
 );
 
-interface MapDisplayProps {
+export interface MapDisplayProps {
   points: TrafficPoint[];
   segmentos?: Segmento[];
 }
-
 export function MapDisplay({ points, segmentos = [] }: MapDisplayProps) {
   // Centro dinámico: si hay puntos, promediamos sus coordenadas
   const mapCenter = useMemo(() => {
@@ -116,18 +116,10 @@ export function MapDisplay({ points, segmentos = [] }: MapDisplayProps) {
             <Popup>
               <div className="text-sm">
                 <p className="font-semibold">{point.name}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Estado: {point.status}
-                </p>
-                <p className="text-xs mt-1">
-                  Congestión: {Math.round(point.congestion)}%
-                </p>
-                <p className="text-xs">
-                  Velocidad: {Math.round(point.avgSpeed)} km/h
-                </p>
-                <p className="text-xs">
-                  Vehículos/h: {Math.round(point.vehiclesPerHour)}
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">Estado: {point.status}</p>
+                <p className="text-xs mt-1">Congestión: {Math.round(point.congestion)}%</p>
+                <p className="text-xs">Velocidad: {Math.round(point.avgSpeed)} km/h</p>
+                <p className="text-xs">Vehículos/h: {Math.round(point.vehiclesPerHour)}</p>
               </div>
             </Popup>
           </Marker>
