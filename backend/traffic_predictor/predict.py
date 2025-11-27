@@ -114,14 +114,26 @@ def predict_congestion(
     # ---------------------------------------------------------
     forecast = model.predict(future_df)
 
+    def clamp(val):
+        return max(1, min(5, float(val)))
+
+    yhat       = clamp(forecast["yhat"].iloc[0])
+    yhat_lower = clamp(forecast["yhat_lower"].iloc[0])
+    yhat_upper = clamp(forecast["yhat_upper"].iloc[0])
+
+    tendencia = float(forecast["trend"].iloc[0])
+
+    # ---------------------------------------------------------
+    # 7. Retornar
+    # ---------------------------------------------------------
     return {
         "fecha": fecha,
         "hora": hora,
         "segmento_id": segmento_id,
-        "congestion_predicha": float(forecast["yhat"].iloc[0]),
-        "congestion_min": float(forecast["yhat_lower"].iloc[0]),
-        "congestion_max": float(forecast["yhat_upper"].iloc[0]),
-        "tendencia": float(forecast["trend"].iloc[0]),
+        "congestion_predicha": yhat,
+        "congestion_min": yhat_lower,
+        "congestion_max": yhat_upper,
+        "tendencia": tendencia,
     }
 
 
@@ -130,15 +142,14 @@ def predict_congestion(
 # -------------------------------------------------------------
 if __name__ == "__main__":
     resultado = predict_congestion(
-    segmento_id=1,
-    fecha="2025-02-01",
-    hora="06:00",
-    precipitacion=2.5,
-    tipo_vehiculo="carro",
-    velocidad_actual=35,
-    carga_actual=600,
-    construccion_vial=1,
-    paradas_cercanas=2
-)
-
+        segmento_id=1,
+        fecha="2025-02-01",
+        hora="5:00",
+        precipitacion=0,
+        tipo_vehiculo="carro",
+        velocidad_actual=66,
+        carga_actual=400,
+        construccion_vial=1,
+        paradas_cercanas=4
+    )
     print("Predicción generada:\n", resultado)
