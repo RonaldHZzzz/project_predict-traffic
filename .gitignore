@@ -3,6 +3,7 @@
 # ============================
 
 # Entornos virtuales
+env310/
 env/
 venv/
 *.venv/
