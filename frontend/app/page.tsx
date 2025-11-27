@@ -223,6 +223,10 @@ export default function DashboardPage() {
               scrollbarStyles
             )}
           >
+              {/*PANEL DE CONTROL ARRIBA*/}
+              <GlassCard>
+                <ControlPanel />
+              </GlassCard>
             {/* Panel de Métricas Principales */}
             {metrics && (
               <GlassCard>
@@ -274,10 +278,7 @@ export default function DashboardPage() {
               )}
             </GlassCard>
 
-            {/* Panel de Control */}
-            <GlassCard>
-              <ControlPanel />
-            </GlassCard>
+          
           </div>
 
           <div className="hidden md:block md:flex-1" />
