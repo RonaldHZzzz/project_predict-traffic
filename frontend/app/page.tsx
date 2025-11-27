@@ -80,7 +80,7 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  if (isInitialLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
