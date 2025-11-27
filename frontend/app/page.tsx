@@ -6,7 +6,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { MetricsGrid } from "@/components/metrics-grid"
 import { ControlPanel } from "@/components/control-panel"
-import { getTrafficPoints, getCurrentMetrics } from "@/lib/traffic-data"
+import { getTrafficPoints, getCurrentMetrics, getSegmentos } from "@/lib/traffic-data"
 import { Skeleton } from "@/components/ui/skeleton"
 // 👇 la usaremos cuando creemos el helper de Matrix
 import { getMatrixData } from "@/lib/matrix"
@@ -21,6 +21,7 @@ const MapDisplay = dynamic(
 
 export default function DashboardPage() {
   const [trafficPoints, setTrafficPoints] = useState<any[]>([])
+  const [segmentos, setSegmentos] = useState<any[]>([])
   const [metrics, setMetrics] = useState<any | null>(null)
   const [avgCongestion, setAvgCongestion] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -35,9 +36,11 @@ export default function DashboardPage() {
         setIsLoading(true)
         setMatrixError(null)
 
-
         const points = await getTrafficPoints()
         setTrafficPoints(points)
+
+        const segs = await getSegmentos()
+        setSegmentos(segs)
 
         const currentMetrics = getCurrentMetrics(points)
         setMetrics(currentMetrics)
@@ -45,14 +48,13 @@ export default function DashboardPage() {
         const avgCong = points.reduce((acc: number, p: any) => acc + p.congestion, 0) / points.length
         setAvgCongestion(avgCong)
 
-
         if (points.length >= 2) {
           const coordinates = points.map((p: any) => ({
             lat: p.lat,
             lng: p.lng,
           }))
 
-          const matrix = await getMatrixData(coordinates)
+          const matrix = await getMatrixData(coordinates.slice(0, 10))
           setMatrixData(matrix)
         }
       } catch (error) {
@@ -130,7 +132,7 @@ export default function DashboardPage() {
             {/* Map - Takes 2 columns */}
             <div className="lg:col-span-2">
               <div className="bg-card rounded-lg border border-border overflow-hidden" style={{ height: "500px" }}>
-                {trafficPoints.length > 0 && <MapDisplay points={trafficPoints} />}
+                {trafficPoints.length > 0 && <MapDisplay points={trafficPoints} segmentos={segmentos} />}
               </div>
             </div>
 

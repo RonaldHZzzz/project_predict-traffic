@@ -20,11 +20,10 @@ export interface TrafficMetrics {
   status: string
 }
 
-export interface SegmentoAPI {
-  id: number
+export interface Segmento {
+  segmento_id: number
   nombre: string
-  coordenadas: { lat: number; lng: number }
-  longitud_km: number
+  geometry: Array<[number, number]> // Array of [lng, lat] pairs
 }
 
 // ---------------------------
@@ -68,9 +67,9 @@ export function getStatusLabel(status: string): string {
 }
 
 // ---------------------------
-// Obtener puntos REALES desde Django
+// Obtener segmentos REALES desde Django
 // ---------------------------
-export async function getTrafficPoints(): Promise<TrafficPoint[]> {
+export async function getSegmentos(): Promise<Segmento[]> {
   const response = await fetch("http://127.0.0.1:8000/segmentos/", {
     cache: "no-store",
   })
@@ -82,56 +81,48 @@ export async function getTrafficPoints(): Promise<TrafficPoint[]> {
   const data = await response.json()
   let segmentos: any[] = []
 
-  // 1) Si el backend devuelve un array plano: [ { id, nombre, coordenadas, ... }, ... ]
+  // 1) Si el backend devuelve un array plano con geometry como array de pares
   if (Array.isArray(data)) {
     segmentos = data
   }
   // 2) Si el backend usa paginación de DRF: { count, results: [...] }
   else if (data && Array.isArray(data.results)) {
     segmentos = data.results
-  }
-  // 3) Si el backend devuelve GeoJSON: { type: "FeatureCollection", features: [...] }
-  else if (data && Array.isArray(data.features)) {
-    segmentos = data.features.map((f: any) => {
-      const coords = f.geometry?.coordinates
-
-      // Si es LineString: [[lng, lat], [lng, lat], ...]
-      let lat = 0
-      let lng = 0
-
-      if (Array.isArray(coords) && Array.isArray(coords[0])) {
-        lng = coords[0][0]
-        lat = coords[0][1]
-      } else if (Array.isArray(coords)) {
-        // Por si fuera Point: [lng, lat]
-        lng = coords[0]
-        lat = coords[1]
-      }
-
-      return {
-        id: f.id ?? f.properties?.id ?? f.properties?.segmento_id,
-        nombre: f.properties?.nombre ?? f.properties?.segmento_nombre ?? "Segmento sin nombre",
-        coordenadas: { lat, lng },
-        longitud_km: f.properties?.longitud_km ?? 1,
-      }
-    })
   } else {
     console.error("Formato de respuesta inesperado de /segmentos/:", data)
     return []
   }
 
-  // Convertimos segmentos genéricos a TrafficPoint
-  return segmentos.map((seg: any) => {
-    const lat = seg.coordenadas?.lat ?? seg.lat ?? 0
-    const lng = seg.coordenadas?.lng ?? seg.lng ?? 0
+  return segmentos.map((seg: any) => ({
+    segmento_id: seg.segmento_id,
+    nombre: seg.nombre ?? "Segmento sin nombre",
+    geometry: seg.geometry ?? [], // Array de [lng, lat]
+  })) as Segmento[]
+}
+
+// ---------------------------
+// Obtener puntos REALES desde Django (para compatibilidad)
+// ---------------------------
+export async function getTrafficPoints(): Promise<TrafficPoint[]> {
+  const segmentos = await getSegmentos()
+
+  // Convertimos cada segmento a un TrafficPoint usando el primer punto de su geometría
+  return segmentos.map((seg: Segmento) => {
+    let lat = 0
+    let lng = 0
+
+    // Extraer primer punto de la geometría [lng, lat]
+    if (seg.geometry && seg.geometry.length > 0) {
+      [lng, lat] = seg.geometry[0]
+    }
 
     const congestion = Math.floor(Math.random() * 60) + 10
     const avgSpeed = Math.floor(Math.random() * 60) + 20
     const vehicles = Math.floor(Math.random() * 2000) + 500
 
     return {
-      id: String(seg.id ?? seg.segmento_id ?? crypto.randomUUID()),
-      name: seg.nombre ?? seg.segmento_nombre ?? "Segmento sin nombre",
+      id: String(seg.segmento_id),
+      name: seg.nombre,
       lat,
       lng,
       congestion,
