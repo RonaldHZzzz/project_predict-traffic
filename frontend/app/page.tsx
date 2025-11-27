@@ -236,11 +236,14 @@ export default function DashboardPage() {
             onSelectSegment={handleSegmentSelect}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-slate-900">
-            <span className="text-white/50 animate-pulse">
+            <div className="w-full h-full flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+              <span className="text-white animate-pulse">
               Cargando Mapa...
-            </span>
-          </div>
+              </span>
+            </div>
+            </div>
         )}
       </div>
 
