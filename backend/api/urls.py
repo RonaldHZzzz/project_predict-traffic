@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path,include
 from django.contrib import admin
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
@@ -24,7 +24,7 @@ urlpatterns = [
     path('admin/',admin.site.urls),
     path('segmentos/', Segmentos.as_view(), name='segmentos'),
     path('mediciones/', MedicionList.as_view(), name='mediciones-list'),
-    
+    path("api/", include("traffic_predictor.urls")),  # Incluir URLs del predictor de tráfico
     # 2. Endpoint para Matrix API (Mapbox)
     path('matrix/', matrix_api, name='matrix-api'),
 
