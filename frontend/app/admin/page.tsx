@@ -13,7 +13,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     // Consumir tu API de Django
-    fetch('http://localhost:8000/api/factores/clima-actual/')
+    fetch('http://127.0.0.1:8000/clima-actual/')
       .then(res => res.json())
       .then(data => {
         setData(data)
