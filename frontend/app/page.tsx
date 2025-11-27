@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Header } from "@/components/header";
-import { Footer } from "@/components/footer";
 import { MetricsGrid } from "@/components/metrics-grid";
 import { ControlPanel } from "@/components/control-panel";
 import {
@@ -12,18 +11,72 @@ import {
   getSegmentos,
 } from "@/lib/traffic-data";
 import { Skeleton } from "@/components/ui/skeleton";
-// 👇 la usaremos cuando creemos el helper de Matrix
 import { getMatrixData } from "@/lib/matrix";
+import { cn } from "@/lib/utils";
+import { CarFront, Gauge, Navigation } from "lucide-react";
 
-const MapDisplay = dynamic(
+
+// CORRECCIÓN DEFINITIVA:
+// 1. Usamos .then() para extraer la exportación nombrada 'MapDisplay'.
+// 2. Usamos (mod: any) para evitar que TypeScript se queje si no detecta los tipos.
+// Esto soluciona tanto el error de compilación como el de ejecución.
+import type { MapDisplayProps } from "@/components/map-display";
+
+const MapDisplay = dynamic<MapDisplayProps>(
   () =>
-    import("@/components/map-display").then((mod) => ({
-      default: mod.MapDisplay,
-    })),
+    import("@/components/map-display").then((mod) => mod.MapDisplay),
   {
     ssr: false,
-    loading: () => <Skeleton className="w-full h-full rounded-lg" />,
+    loading: () => <Skeleton className="w-full h-full bg-slate-900/50" />,
   }
+);
+// Componente reutilizable para el efecto "Liquid Glass"
+const GlassCard = ({
+  children,
+  className,
+  onClick,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  onClick?: () => void;
+}) => (
+  <div
+    onClick={onClick}
+    className={cn(
+      "bg-background/60 dark:bg-black/40 backdrop-blur-xl border border-white/20 shadow-2xl rounded-2xl p-6 pointer-events-auto transition-all duration-300",
+      className
+    )}
+  >
+    {children}
+  </div>
+);
+
+// Inyección de estilos para la animación de flujo (Flow Animation)
+const FlowStyles = () => (
+  <style jsx global>{`
+    @keyframes flow-stripe {
+      0% {
+        background-position: 0 0;
+      }
+      100% {
+        background-position: 30px 0;
+      }
+    }
+    .animate-flow {
+      background-size: 30px 30px;
+      background-image: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.15) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.15) 50%,
+        rgba(255, 255, 255, 0.15) 75%,
+        transparent 75%,
+        transparent
+      );
+      animation: flow-stripe 1s linear infinite;
+    }
+  `}</style>
 );
 
 export default function DashboardPage() {
@@ -32,6 +85,9 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<any | null>(null);
   const [avgCongestion, setAvgCongestion] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Estado para la selección interactiva
+  const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
 
   const [matrixData, setMatrixData] = useState<any | null>(null);
   const [matrixError, setMatrixError] = useState<string | null>(null);
@@ -53,7 +109,7 @@ export default function DashboardPage() {
 
         const avgCong =
           points.reduce((acc: number, p: any) => acc + p.congestion, 0) /
-          points.length;
+          (points.length || 1);
         setAvgCongestion(avgCong);
 
         if (points.length >= 2) {
@@ -76,150 +132,308 @@ export default function DashboardPage() {
     };
 
     loadData();
-    const interval = setInterval(loadData, 30000000); // cada 30 segundos
+    const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  if (isInitialLoading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <main className="flex-1 p-4 md:p-6">
-          <Skeleton className="h-40 w-full mb-6 rounded-lg" />
-          <Skeleton className="h-96 w-full rounded-lg" />
-        </main>
-      </div>
-    );
-  }
-
+  // Calculamos tiempos de ruta
   let tiempoRuta1 = null;
   let tiempoRuta2 = null;
 
   if (matrixData?.durations && matrixData.durations.length > 0) {
     const row0 = matrixData.durations[0];
-    if (row0[1] != null) tiempoRuta1 = Math.round(row0[1] / 60); // en minutos
+    if (row0[1] != null) tiempoRuta1 = Math.round(row0[1] / 60);
     if (row0[2] != null) tiempoRuta2 = Math.round(row0[2] / 60);
   }
 
+  // --- HELPERS DE COLOR Y ESTILO ---
+  const getCongestionColor = (value: number) => {
+    if (value >= 75) return "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]";
+    if (value >= 50)
+      return "bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.5)]";
+    if (value >= 30)
+      return "bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]";
+    return "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]";
+  };
+
+  const getCongestionTextColor = (value: number) => {
+    if (value >= 75) return "text-red-400";
+    if (value >= 50) return "text-orange-400";
+    if (value >= 30) return "text-yellow-400";
+    return "text-emerald-400";
+  };
+
+  const getGradientColor = (value: number) => {
+    if (value >= 75) return "from-red-500 to-red-300";
+    if (value >= 50) return "from-orange-500 to-orange-300";
+    if (value >= 30) return "from-yellow-500 to-yellow-300";
+    return "from-emerald-500 to-emerald-300";
+  };
+
+  const getStatusBorder = (value: number) => {
+    if (value >= 75) return "border-red-500/50 shadow-red-500/20";
+    if (value >= 50) return "border-orange-500/50 shadow-orange-500/20";
+    if (value >= 30) return "border-yellow-500/50 shadow-yellow-500/20";
+    return "border-emerald-500/50 shadow-emerald-500/20";
+  };
+
+  // --- ESTILOS DE SCROLL ---
+  const scrollbarStyles =
+    "overflow-y-auto pr-2 " +
+    "[&::-webkit-scrollbar]:w-1.5 " +
+    "[&::-webkit-scrollbar-track]:bg-transparent " +
+    "[&::-webkit-scrollbar-thumb]:bg-white/10 " +
+    "[&::-webkit-scrollbar-thumb]:rounded-full " +
+    "hover:[&::-webkit-scrollbar-thumb]:bg-white/30 " +
+    "[scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.1)_transparent]";
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+    <div className="relative w-full h-screen overflow-hidden bg-slate-950 font-sans text-foreground">
+      <FlowStyles />
 
-      <main className="flex-1 p-4 md:p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Metrics Grid */}
-          {metrics && (
-            <MetricsGrid
-              metrics={metrics}
-              congestionLevel={Math.round(avgCongestion)}
-            />
-          )}
+      {/* CAPA 1: EL MAPA DE FONDO */}
+      <div className="absolute inset-0 z-0">
+        {!isLoading && trafficPoints.length > 0 ? (
+          <MapDisplay points={trafficPoints} segmentos={segmentos} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-slate-900">
+            <span className="text-white/50 animate-pulse">
+              Cargando Mapa...
+            </span>
+          </div>
+        )}
+      </div>
 
-          {/* Bloque simple para mostrar tiempos de Matrix */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-card border border-border rounded-lg p-4">
-              <h2 className="text-sm font-semibold mb-2">
-                Tiempos entre rutas (Matrix API)
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none" />
+
+      {/* CAPA 2: CONTENIDO FLOTANTE (HUD) */}
+      <div className="relative z-10 w-full h-full flex flex-col pointer-events-none p-4 md:p-6 overflow-y-auto md:overflow-hidden">
+        {/* HEADER FLOTANTE */}
+        <div className="mb-6 pointer-events-auto">
+          <div className="rounded-xl overflow-hidden shadow-lg backdrop-blur-md bg-background/40 border border-white/10">
+            <Header />
+          </div>
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-6 flex-1 min-h-0">
+          {/* COLUMNA IZQUIERDA */}
+          <div
+            className={cn(
+              "w-full md:w-1/3 lg:w-1/4 flex flex-col gap-4",
+              scrollbarStyles
+            )}
+          >
+            {/* Panel de Métricas Principales */}
+            {metrics && (
+              <GlassCard>
+                <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-bold mb-4">
+                  Métricas en vivo
+                </h2>
+                <MetricsGrid
+                  metrics={metrics}
+                  congestionLevel={Math.round(avgCongestion)}
+                />
+              </GlassCard>
+            )}
+
+            {/* Panel de Tiempos Matrix */}
+            <GlassCard>
+              <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                Tiempos de Ruta (Matrix API)
               </h2>
-              {matrixError && (
-                <p className="text-xs text-red-500">{matrixError}</p>
-              )}
-              {!matrixError && !matrixData && (
-                <p className="text-xs text-muted-foreground">
-                  Cargando matriz...
-                </p>
-              )}
 
-              {matrixData && (
-                <div className="space-y-1 text-xs">
-                  {tiempoRuta1 !== null && (
-                    <p>
-                      Ruta 1 (origen → punto 2):{" "}
-                      <span className="font-semibold">{tiempoRuta1} min</span>
-                    </p>
-                  )}
-                  {tiempoRuta2 !== null && (
-                    <p>
-                      Ruta 2 (origen → punto 3):{" "}
-                      <span className="font-semibold">{tiempoRuta2} min</span>
-                    </p>
-                  )}
-                  {!tiempoRuta1 && !tiempoRuta2 && (
-                    <p>No hay suficientes puntos para calcular rutas.</p>
-                  )}
+              {matrixError ? (
+                <p className="text-xs text-red-400">{matrixError}</p>
+              ) : !matrixData ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-3/4 bg-white/10" />
+                  <Skeleton className="h-4 w-1/2 bg-white/10" />
+                </div>
+              ) : (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center p-2 rounded-lg bg-white/5 border border-white/5">
+                    <span className="text-muted-foreground">
+                      Ruta 1 (Punto 2)
+                    </span>
+                    <span className="font-bold text-xl text-blue-400">
+                      {tiempoRuta1 || "--"}{" "}
+                      <span className="text-xs text-muted-foreground">min</span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 rounded-lg bg-white/5 border border-white/5">
+                    <span className="text-muted-foreground">
+                      Ruta 2 (Punto 3)
+                    </span>
+                    <span className="font-bold text-xl text-blue-400">
+                      {tiempoRuta2 || "--"}{" "}
+                      <span className="text-xs text-muted-foreground">min</span>
+                    </span>
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
+            </GlassCard>
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Map - Takes 2 columns */}
-            <div className="lg:col-span-2">
-              <div
-                className="bg-card rounded-lg border border-border overflow-hidden"
-                style={{ height: "500px" }}
-              >
-                {trafficPoints.length > 0 && (
-                  <MapDisplay points={trafficPoints} segmentos={segmentos} />
-                )}
-              </div>
-            </div>
-
-            {/* Right Sidebar */}
-            <div className="space-y-6">
+            {/* Panel de Control */}
+            <GlassCard>
               <ControlPanel />
-            </div>
+            </GlassCard>
           </div>
 
-          {/* Traffic Status */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-3">
-              <h2 className="text-xl font-semibold mb-4">
-                Estado de Puntos de Monitoreo
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {trafficPoints.map((point: any) => (
-                  <div
+          <div className="hidden md:block md:flex-1" />
+
+          {/* COLUMNA DERECHA: PUNTOS DE MONITOREO MEJORADOS E INTERACTIVOS */}
+          <div className="w-full md:w-1/3 lg:w-1/4 flex flex-col justify-end pointer-events-none gap-2">
+            {/* Título de la sección flotante */}
+            <div className="bg-background/40 backdrop-blur-md border border-white/10 rounded-lg p-2 px-4 flex justify-between items-center pointer-events-auto">
+              <h3 className="text-sm font-bold text-foreground/90">
+                Puntos de Monitoreo
+              </h3>
+              <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-muted-foreground">
+                {trafficPoints.length} activos
+              </span>
+            </div>
+
+            <div
+              className={cn(
+                "pointer-events-auto max-h-[40vh] md:max-h-[60vh] space-y-3 pb-2",
+                scrollbarStyles
+              )}
+            >
+              {trafficPoints.map((point: any) => {
+                const isSelected = selectedPointId === point.id;
+                const borderStyle = getStatusBorder(point.congestion);
+                const gradientColor = getGradientColor(point.congestion);
+
+                return (
+                  <GlassCard
                     key={point.id}
-                    className="bg-card border border-border rounded-lg p-4"
+                    onClick={() =>
+                      setSelectedPointId(isSelected ? null : point.id)
+                    }
+                    className={cn(
+                      "p-4 rounded-xl cursor-pointer hover:bg-white/5 group relative overflow-hidden",
+                      isSelected
+                        ? cn("border-opacity-100 scale-[1.02]", borderStyle)
+                        : "border-white/10 hover:border-white/20"
+                    )}
                   >
-                    <h3 className="font-semibold text-sm mb-3 line-clamp-2">
-                      {point.name}
-                    </h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Velocidad</span>
-                        <span className="font-medium">
-                          {Math.round(point.avgSpeed)} km/h
+                    {/* Fondo brillante al seleccionar */}
+                    {isSelected && (
+                      <div
+                        className={cn(
+                          "absolute inset-0 opacity-10 bg-gradient-to-br transition-opacity duration-500",
+                          gradientColor
+                        )}
+                      />
+                    )}
+
+                    {/* Encabezado de la Tarjeta */}
+                    <div className="relative z-10 flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-2">
+                        {/* Indicador de estado (punto brillante) */}
+                        <span className="relative flex h-2.5 w-2.5">
+                          <span
+                            className={cn(
+                              "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                              getCongestionTextColor(point.congestion).replace(
+                                "text",
+                                "bg"
+                              )
+                            )}
+                          ></span>
+                          <span
+                            className={cn(
+                              "relative inline-flex rounded-full h-2.5 w-2.5",
+                              getCongestionColor(point.congestion)
+                            )}
+                          ></span>
                         </span>
+                        <h3
+                          className={cn(
+                            "font-bold text-sm transition-colors line-clamp-1",
+                            isSelected ? "text-foreground" : "text-foreground/80"
+                          )}
+                        >
+                          {point.name}
+                        </h3>
                       </div>
-                      <div className="flex justify-between">
+                      <button
+                        className={cn(
+                          "transition-colors",
+                          isSelected
+                            ? "text-white"
+                            : "text-muted-foreground hover:text-white"
+                        )}
+                      >
+                        <Navigation className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Grid de Datos */}
+                    <div className="relative z-10 grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-black/20 rounded-lg p-2 flex items-center gap-2">
+                        <Gauge className="w-4 h-4 text-blue-400" />
+                        <div>
+                          <span className="block text-[10px] text-muted-foreground font-medium uppercase">
+                            Velocidad
+                          </span>
+                          <span className="text-sm font-bold font-mono">
+                            {Math.round(point.avgSpeed)}{" "}
+                            <span className="text-[10px] font-normal opacity-70">
+                              km/h
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="bg-black/20 rounded-lg p-2 flex items-center gap-2">
+                        <CarFront className="w-4 h-4 text-purple-400" />
+                        <div>
+                          <span className="block text-[10px] text-muted-foreground font-medium uppercase">
+                            Flujo
+                          </span>
+                          <span className="text-sm font-bold font-mono">
+                            {Math.round(point.vehiclesPerHour)}{" "}
+                            <span className="text-[10px] font-normal opacity-70">
+                              v/h
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Barra de Congestión Visual ANIMADA */}
+                    <div className="relative z-10 space-y-1">
+                      <div className="flex justify-between items-center text-[10px]">
                         <span className="text-muted-foreground">
-                          Congestión
+                          Nivel de congestión
                         </span>
-                        <span className="font-medium">
+                        <span
+                          className={cn(
+                            "font-bold",
+                            getCongestionTextColor(point.congestion)
+                          )}
+                        >
                           {Math.round(point.congestion)}%
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Vehículos/h
-                        </span>
-                        <span className="font-medium">
-                          {Math.round(point.vehiclesPerHour)}
-                        </span>
+                      <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500 bg-gradient-to-r animate-flow",
+                            gradientColor
+                          )}
+                          style={{ width: `${Math.round(point.congestion)}%` }}
+                        />
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  </GlassCard>
+                );
+              })}
             </div>
           </div>
         </div>
-      </main>
-
-      <Footer />
+      </div>
     </div>
   );
 }
