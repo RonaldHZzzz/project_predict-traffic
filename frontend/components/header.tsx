@@ -3,12 +3,19 @@
 import Link from "next/link";
 import { MapPin, Menu, Activity, TrendingUp, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    setUserName(user);
+  }, []);
+
   const handleLogout = () => {
     // Eliminar cookies
     document.cookie = "access=; path=/; max-age=0";
@@ -16,8 +23,6 @@ export function Header() {
     window.location.href = "/login";
     localStorage.removeItem("user");
   };
-
-  const userName = localStorage.getItem("user");
 
   // Link helper para mantener el código limpio
   const NavLink = ({ href, icon: Icon, children }: any) => (
@@ -66,7 +71,9 @@ export function Header() {
             Admin
           </NavLink>
           <Button variant="ghost" onClick={handleLogout}>
-            { userName ? `Cerrar sesión (${JSON.parse(userName)})` : "Cerrar sesión" }
+            {userName
+              ? `Cerrar sesión (${JSON.parse(userName)})`
+              : "Cerrar sesión"}
           </Button>
         </nav>
 
