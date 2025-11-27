@@ -4,6 +4,8 @@ from rest_framework import status
 
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import permission_classes
 
 from .predict import predict_congestion
 
@@ -39,6 +41,7 @@ predict_request_schema = openapi.Schema(
     responses={200: "Predicción generada correctamente"}
 )
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def predict_traffic(request):
     """
     Endpoint para predecir congestion.

@@ -1,13 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Menu, Activity, TrendingUp, Settings } from "lucide-react";
+import { MapPin, Menu, Activity, TrendingUp, Settings, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { access } from "fs";
+import { LogOut } from "lucide-react";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const handleLogout = () => {
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    window.location.href = "/login";
+  }
 
   // Link helper para mantener el código limpio
   const NavLink = ({ href, icon: Icon, children }: any) => (
@@ -50,6 +57,8 @@ export function Header() {
           <NavLink href="/" icon={Activity}>Dashboard</NavLink>
           <NavLink href="/analytics" icon={TrendingUp}>Análisis</NavLink>
           <NavLink href="/admin" icon={Settings}>Admin</NavLink>
+          <Button variant="ghost"  onClick={handleLogout}>Cerrar sesion</Button>
+          
         </nav>
 
         {/* MOBILE MENU TOGGLE */}
