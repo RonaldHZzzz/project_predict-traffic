@@ -7,7 +7,7 @@ from drf_yasg import openapi
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
 
-from .predict import predict_congestion
+from .predict import predict_congestion_24h
 
 
 # ----------------------------
@@ -15,24 +15,20 @@ from .predict import predict_congestion
 # ----------------------------
 predict_request_schema = openapi.Schema(
     type=openapi.TYPE_OBJECT,
-    required=["segmento_id", "fecha", "hora"],
+    required=["segmento_id"],
     properties={
         "segmento_id": openapi.Schema(
             type=openapi.TYPE_INTEGER,
             description="ID del segmento (1-10)",
             default=1
         ),
-        "fecha": openapi.Schema(type=openapi.TYPE_STRING, description="Formato YYYY-MM-DD", default="2025-02-01"),
-        "hora": openapi.Schema(type=openapi.TYPE_STRING, description="Formato HH:MM", default="06:00"),
-        "precipitacion": openapi.Schema(type=openapi.TYPE_NUMBER, description="mm de lluvia", default=0),
-        "tipo_vehiculo": openapi.Schema(type=openapi.TYPE_STRING, description="carro, moto, bus", default="carro"),
-        "velocidad": openapi.Schema(type=openapi.TYPE_NUMBER, description="Velocidad actual km/h", default=35),
-        "carga": openapi.Schema(type=openapi.TYPE_NUMBER, description="Flujo vehicular actual", default=400),
-        "construccion_vial": openapi.Schema(type=openapi.TYPE_INTEGER, description="0 o 1", default=0),
-        "paradas_cercanas": openapi.Schema(type=openapi.TYPE_INTEGER, description="Cantidad de paradas cercanas", default=0),
+        "fecha": openapi.Schema(
+            type=openapi.TYPE_STRING,
+            description="Formato YYYY-MM-DD (opcional, default = hoy)",
+            default="2025-02-01"
+        )
     }
 )
-
 
 
 @swagger_auto_schema(
@@ -44,30 +40,23 @@ predict_request_schema = openapi.Schema(
 @permission_classes([IsAuthenticated])
 def predict_traffic(request):
     """
-    Endpoint para predecir congestion.
+    Endpoint para predecir congestion de 24 horas por segmento.
     """
     try:
         data = request.data
 
-        # Validar campos obligatorios
-        required = ["segmento_id", "fecha", "hora"]
-        for field in required:
-            if field not in data:
-                return Response(
-                    {"error": f"Campo requerido faltante: {field}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        if "segmento_id" not in data:
+            return Response(
+                {"error": "Campo requerido faltante: segmento_id"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        resultado = predict_congestion(
-            segmento_id=int(data["segmento_id"]),
-            fecha=data["fecha"],
-            hora=data["hora"],
-            precipitacion=float(data.get("precipitacion", 0)),
-            tipo_vehiculo=data.get("tipo_vehiculo", "carro"),
-            velocidad_actual=float(data.get("velocidad", 35)),
-            carga_actual=float(data.get("carga", 400)),
-            construccion_vial=int(data.get("construccion_vial", 0)),
-            paradas_cercanas=int(data.get("paradas_cercanas", 0))
+        segmento_id = int(data["segmento_id"])
+        fecha = data.get("fecha", None)  # si no viene, se usa fecha actual
+
+        resultado = predict_congestion_24h(
+            segmento_id=segmento_id,
+            fecha=fecha
         )
 
         return Response(resultado, status=status.HTTP_200_OK)

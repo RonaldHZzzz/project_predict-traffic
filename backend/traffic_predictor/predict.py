@@ -2,7 +2,7 @@ import pandas as pd
 import joblib
 from prophet import Prophet
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 # -------------------------------------------------------------
@@ -15,9 +15,6 @@ BASE_PATH = os.path.join(
 
 
 def load_model(segmento_id):
-    """
-    Carga el modelo Prophet entrenado para un segmento específico.
-    """
     model_path = os.path.join(BASE_PATH, f"model_segmento_{segmento_id}.pkl")
 
     if not os.path.exists(model_path):
@@ -29,127 +26,96 @@ def load_model(segmento_id):
 
 
 # -------------------------------------------------------------
-#   GENERAR PREDICCIÓN
+#   PREDICCIÓN DE 24 HORAS PARA UN SEGMENTO
 # -------------------------------------------------------------
-def predict_congestion(
-    segmento_id,
-    fecha,
-    hora,
-    precipitacion=0,
-    tipo_vehiculo="carro",
-    velocidad_actual=40,
-    carga_actual=200,
-    construccion_vial=0,
-    paradas_cercanas=0
-):
+def predict_congestion_24h(segmento_id, fecha=None):
     """
-    Genera la predicción de congestión para un segmento usando Prophet.
+    Predice 24 horas de congestión cada 1 hora para un segmento dado.
     """
-
-    # ---------------------------------------------------------
-    # 1. Cargar modelo
-    # ---------------------------------------------------------
     model = load_model(segmento_id)
 
-    # ---------------------------------------------------------
-    # 2. Construir base del dataframe futuro
-    # ---------------------------------------------------------
-    fecha_hora = f"{fecha} {hora}"
-    ds = pd.to_datetime(fecha_hora)
+    # Si no envías fecha, se usa la actual
+    if fecha is None:
+        fecha = datetime.now().strftime("%Y-%m-%d")
 
-    future_df = pd.DataFrame({"ds": [ds]})
-
-    # ===== Regresores numéricos principales =====
-    future_df["hour"] = ds.hour
-    future_df["velocidad_kmh"] = velocidad_actual
-    future_df["carga_vehicular"] = carga_actual
-    future_df["construccion_vial"] = construccion_vial
-    future_df["paradas_cercanas"] = paradas_cercanas
-    future_df["precipitacion"] = precipitacion
-
-    # ===== Dummies de tipo vehículo =====
-    future_df["tipo_vehiculo_moto"] = 1 if tipo_vehiculo == "moto" else 0
-    future_df["tipo_vehiculo_bus"] = 1 if tipo_vehiculo == "bus" else 0
+    resultados = []
 
     # ---------------------------------------------------------
-    # 3. Generar dummies REALISTAS tipo_dia
+    # 24 horas → 0,1,2,3...23
     # ---------------------------------------------------------
-    dia_semana_en = ds.strftime("%A")
+    for hora in range(24):
 
-    map_dias = {
-        "Monday": "Lunes",
-        "Tuesday": "Martes",
-        "Wednesday": "Miércoles",
-        "Thursday": "Jueves",
-        "Friday": "Viernes",
-        "Saturday": "Sábado",
-        "Sunday": "Domingo",
-    }
+        time_str = f"{hora:02d}:00"
+        ds = pd.to_datetime(f"{fecha} {time_str}")
 
-    dia_es = map_dias[dia_semana_en]
+        future_df = pd.DataFrame({"ds": [ds]})
 
-    dummies_tipo_dia = [
-        "tipo_dia_Lunes",
-        "tipo_dia_Martes",
-        "tipo_dia_Miércoles",
-        "tipo_dia_Jueves",
-        "tipo_dia_Viernes",
-        "tipo_dia_Sábado",
-        "tipo_dia_Domingo",
-    ]
+        # ---------------- VARIABLES DEFAULT REALISTICAS ----------------
+        future_df["hour"] = hora
+        future_df["velocidad_kmh"] = 40
+        future_df["carga_vehicular"] = 200
+        future_df["construccion_vial"] = 0
+        future_df["paradas_cercanas"] = 3
+        future_df["precipitacion"] = 0
 
-    for d in dummies_tipo_dia:
-        nombre = d.replace("tipo_dia_", "")
-        future_df[d] = 1 if nombre == dia_es else 0
+        future_df["tipo_vehiculo_moto"] = 0
+        future_df["tipo_vehiculo_bus"] = 0
 
-    # ---------------------------------------------------------
-    # 4. AGREGAR CUALQUIER REGRESOR QUE FALTE (CLAVE)
-    # ---------------------------------------------------------
-    for reg in model.extra_regressors.keys():
-        if reg not in future_df.columns:
-            future_df[reg] = 0
+        # -------------------- Dummies tipo día ------------------------
+        dia_semana_en = ds.strftime("%A")
 
-    # ---------------------------------------------------------
-    # 5. Predecir
-    # ---------------------------------------------------------
-    forecast = model.predict(future_df)
+        map_dias = {
+            "Monday": "Lunes",
+            "Tuesday": "Martes",
+            "Wednesday": "Miércoles",
+            "Thursday": "Jueves",
+            "Friday": "Viernes",
+            "Saturday": "Sábado",
+            "Sunday": "Domingo",
+        }
 
-    def clamp(val):
-        return max(1, min(5, float(val)))
+        dia_es = map_dias[dia_semana_en]
 
-    yhat       = clamp(forecast["yhat"].iloc[0])
-    yhat_lower = clamp(forecast["yhat_lower"].iloc[0])
-    yhat_upper = clamp(forecast["yhat_upper"].iloc[0])
+        dummies = [
+            "tipo_dia_Lunes",
+            "tipo_dia_Martes",
+            "tipo_dia_Miércoles",
+            "tipo_dia_Jueves",
+            "tipo_dia_Viernes",
+            "tipo_dia_Sábado",
+            "tipo_dia_Domingo",
+        ]
 
-    tendencia = float(forecast["trend"].iloc[0])
+        for d in dummies:
+            nombre = d.replace("tipo_dia_", "")
+            future_df[d] = 1 if nombre == dia_es else 0
 
-    # ---------------------------------------------------------
-    # 7. Retornar
-    # ---------------------------------------------------------
-    return {
-        "fecha": fecha,
-        "hora": hora,
-        "segmento_id": segmento_id,
-        "congestion_predicha": yhat,
-        "congestion_min": yhat_lower,
-        "congestion_max": yhat_upper,
-        "tendencia": tendencia,
-    }
+        # ----------------- Completar regresores faltantes --------------
+        for reg in model.extra_regressors.keys():
+            if reg not in future_df.columns:
+                future_df[reg] = 0
+
+        # --------------------- HACER PREDICCIÓN ------------------------
+        pred = model.predict(future_df)
+
+        def clamp(v): return max(1, min(5, float(v)))
+
+        resultados.append({
+            "segmento_id": segmento_id,
+            "fecha": fecha,
+            "hora": time_str,
+            "congestion": clamp(pred["yhat"].iloc[0]),
+            "min": clamp(pred["yhat_lower"].iloc[0]),
+            "max": clamp(pred["yhat_upper"].iloc[0]),
+            "tendencia": float(pred["trend"].iloc[0])
+        })
+
+    return resultados
 
 
 # -------------------------------------------------------------
-# PRUEBA LOCAL
+# PRUEBA
 # -------------------------------------------------------------
 if __name__ == "__main__":
-    resultado = predict_congestion(
-        segmento_id=1,
-        fecha="2025-02-01",
-        hora="5:00",
-        precipitacion=0,
-        tipo_vehiculo="carro",
-        velocidad_actual=66,
-        carga_actual=400,
-        construccion_vial=1,
-        paradas_cercanas=4
-    )
-    print("Predicción generada:\n", resultado)
+    pred_24h = predict_congestion_24h(segmento_id=1)
+    print(pred_24h)
