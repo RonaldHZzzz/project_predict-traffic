@@ -6,11 +6,16 @@ from django.contrib.gis.db import models # Usar siempre gis.db
 
 
 class Segmento(models.Model):
-    # Usaremos el ID del CSV como primary key
-    segmento_id = models.IntegerField(primary_key=True) 
+    segmento_id = models.IntegerField(primary_key=True)
     nombre = models.CharField(max_length=200)
-    geometria = models.LineStringField(srid=4326) # Aquí guardaremos la línea completa
-    
+    geometria = models.LineStringField(srid=4326)
+
+    # NUEVOS CAMPOS AÑADIDOS
+    longitud_km = models.FloatField(null=True, blank=True,
+                                    help_text="Longitud total del tramo en kilómetros")
+    paradas_cercanas = models.IntegerField(default=0,
+                                           help_text="Cantidad de paradas cercanas en el tramo")
+
     def __str__(self):
         return self.nombre
 
