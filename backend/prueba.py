@@ -2,80 +2,152 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-# PARÁMETROS
-dias = 30
-segmentos = {
-    1: {"longitud": 12.755, "paradas": 6},
-    2: {"longitud": 13.073, "paradas": 4},
-    3: {"longitud": 12.969, "paradas": 3},
-    4: {"longitud": 13.055, "paradas": 5},
-    5: {"longitud": 12.614, "paradas": 3},
-    6: {"longitud": 13.621, "paradas": 6},
-    7: {"longitud": 13.167, "paradas": 2},
-    8: {"longitud": 13.335, "paradas": 2},
-    9: {"longitud": 15.138, "paradas": 4},
-    10: {"longitud": 41.974, "paradas": 1},
+# ============================
+# PARÁMETROS GENERALES
+# ============================
+DIAS = 30
+
+SEGMENTOS = {
+    1: {"longitud": 12.755, "paradas": 6, "construccion": 1},
+    2: {"longitud": 13.073, "paradas": 4, "construccion": 0},
+    3: {"longitud": 12.969, "paradas": 3, "construccion": 0},
+    4: {"longitud": 13.055, "paradas": 5, "construccion": 0},
+    5: {"longitud": 12.614, "paradas": 3, "construccion": 0},
+    6: {"longitud": 13.621, "paradas": 6, "construccion": 0},
+    7: {"longitud": 13.167, "paradas": 2, "construccion": 0},
+    8: {"longitud": 13.335, "paradas": 2, "construccion": 0},
+    9: {"longitud": 15.138, "paradas": 4, "construccion": 0},
+    10: {"longitud": 41.974, "paradas": 1, "construccion": 0},
 }
 
-start_date = datetime.now() - timedelta(days=dias)
-
+start_date = datetime.now() - timedelta(days=DIAS)
 rows = []
 
-for d in range(dias):
+DIAS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+
+# ============================
+# TABLA OFICIAL DE CONGESTIÓN
+# ============================
+def congestion_base_hora(h: int) -> float:
+    if 0 <= h <= 4:
+        return 1
+    if 5 <= h <= 7:
+        return 4
+    if 8 <= h <= 12:
+        return np.random.uniform(2, 3)
+    if 13 <= h <= 15:
+        return 3
+    if 16 <= h <= 20:
+        return np.random.uniform(4, 5)
+    if 21 <= h <= 22:
+        return 4
+    if h == 23:
+        return np.random.uniform(1, 2)
+    return 2
+
+
+def velocidad_por_congestion(cong: float) -> float:
+    """
+    Velocidad coherente con CONGESTIÓN:
+      1  → 40–55 km/h (fluido)
+      2  → 30–40 km/h
+      3  → 20–30 km/h
+      4  → 10–20 km/h
+      5  → 5–12 km/h
+    """
+    if cong <= 1.5:
+        return np.random.uniform(40, 55)
+    elif cong <= 2.5:
+        return np.random.uniform(30, 40)
+    elif cong <= 3.5:
+        return np.random.uniform(20, 30)
+    elif cong <= 4.5:
+        return np.random.uniform(10, 20)
+    else:
+        return np.random.uniform(5, 12)
+
+
+# ============================
+# GENERACIÓN DEL DATASET
+# ============================
+for d in range(DIAS):
     fecha = start_date + timedelta(days=d)
+    tipo_dia_en = fecha.strftime("%A")
+    tipo_dia = DIAS_ES[fecha.weekday()]
+    es_fin = 1 if tipo_dia_en in ["Saturday", "Sunday"] else 0
 
     for h in range(24):
-        hora = f"{h:02d}:00"
-        
-        # Calendario
-        tipo_dia = fecha.strftime("%A")
-        es_fin = 1 if tipo_dia in ["Saturday", "Sunday"] else 0
+        hora_str = f"{h:02d}:00"
 
-        # Factores horarios
-        entrada_estudiantes = 1 if h == 7 else 0
-        salida_estudiantes  = 1 if h == 17 else 0
-        entrada_trabajadores = 1 if h == 7 else 0
-        salida_trabajadores  = 1 if h == 17 else 0
-        
-        # Horas pico
-        hora_pico = 1 if h in [6,7,8,16,17,18] else 0
-        
-        # Precipitación simulada
-        precipitacion = round(np.random.uniform(0, 10), 2) if np.random.random() < 0.2 else 0
+        # Tabla oficial base
+        base = congestion_base_hora(h)
 
-        for seg_id, info in segmentos.items():
-            
-            # Congestión depende de hora + lluvia + paradas + estudiantes/trabajo
-            base = 1
-            
-            if hora_pico:
-                base += 2
-            
+        # Calendario / personas
+        entrada_estudiantes = 1 if h in (7, 8) else 0
+        salida_estudiantes = 1 if h in (12, 17, 18) else 0
+        entrada_trabajadores = 1 if h in (7, 8) else 0
+        salida_trabajadores = 1 if h in (17, 18) else 0
+
+        # Lluvia en la tarde
+        precipitacion = 0.0
+        if h in (16, 17, 18, 19, 20):
+            precipitacion = float(np.random.choice([0, 0, 0.5, 1.0, 2.0]))
+
+        # Hora pico (por simplicidad: cuando base >= 4)
+        hora_pico = 1 if base >= 4 else 0
+
+        for seg_id, info in SEGMENTOS.items():
+            cong = base
+
+            # Ajustes por dinámicas humanas
+            cong += (entrada_estudiantes + salida_estudiantes) * 0.3
+            cong += (entrada_trabajadores + salida_trabajadores) * 0.4
+
+            # Transporte colectivo pasa por 1 y 2 → más congestión
+            if seg_id in (1, 2):
+                cong += 0.5
+
+            # Lluvia
             if precipitacion > 0:
-                base += 1
-            
-            if entrada_estudiantes or salida_estudiantes:
-                base += 1
-            
-            if entrada_trabajadores or salida_trabajadores:
-                base += 1
-            
-            congestion = min(5, max(1, base))
-            
-            # Velocidad inversa a congestión
-            velocidad = max(5, 50 - congestion*8)
-            
-            # Carga vehicular
-            carga = int(np.random.randint(50, 500) * (1 + congestion*0.3))
+                cong += 0.4
 
-            # Construcción vial aleatoria
-            construccion = 1 if np.random.random() < 0.05 else 0
+            cong = float(np.clip(cong, 1, 5))
 
-            # Guardar fila
+            # Velocidad en función de la congestión
+            velocidad = velocidad_por_congestion(cong)
+
+            # Penalización extra construcción en segmento 1
+            if info["construccion"] == 1:
+                velocidad *= 0.8
+
+            # Penalización ligera por lluvia
+            if precipitacion > 0:
+                velocidad *= 0.9
+
+            velocidad = max(5, velocidad)
+
+            # Carga vehicular CONSISTENTE con congestión
+            base_carga = 150 + cong * 70  # más congestión → más carga
+
+            if hora_pico:
+                base_carga *= 1.5
+
+            if seg_id in (1, 2):
+                base_carga *= 1.2  # transporte colectivo
+
+            if precipitacion > 0:
+                base_carga *= 1.1
+
+            if es_fin:
+                base_carga *= 0.7
+
+            carga = int(base_carga)
+
             rows.append([
                 seg_id,
                 fecha.strftime("%Y-%m-%d"),
-                hora,
+                hora_str,
                 tipo_dia,
                 es_fin,
                 precipitacion,
@@ -86,22 +158,24 @@ for d in range(dias):
                 hora_pico,
                 info["longitud"],
                 info["paradas"],
-                congestion,
+                cong,
                 velocidad,
                 carga,
-                construccion
+                info["construccion"],
             ])
 
-# Crear CSV
+# ============================
+# CREAR CSV FINAL
+# ============================
 cols = [
-    "segmento_id","fecha","hora","tipo_dia","es_fin",
-    "precipitacion","entrada_estudiantes","salida_estudiantes",
-    "entrada_trabajadores","salida_trabajadores","hora_pico",
-    "longitud_km","paradas_cercanas",
-    "nivel_congestion","velocidad_kmh","carga_vehicular","construccion_vial"
+    "segmento_id", "fecha", "hora", "tipo_dia", "es_fin",
+    "precipitacion", "entrada_estudiantes", "salida_estudiantes",
+    "entrada_trabajadores", "salida_trabajadores", "hora_pico",
+    "longitud_km", "paradas_cercanas",
+    "nivel_congestion", "velocidad_kmh",
+    "carga_vehicular", "construccion_vial"
 ]
 
 df = pd.DataFrame(rows, columns=cols)
 df.to_csv("dataset_trafico_30dias.csv", index=False)
-
-print("CSV generado: dataset_trafico_30dias.csv")
+print("✔ DATASET GENERADO CON TABLA OFICIAL: dataset_trafico_30dias.csv")
