@@ -1,7 +1,9 @@
 import os
 import joblib
 import pandas as pd
+from django.utils import timezone
 from prophet import Prophet
+
 
 # Carpeta donde se guardan los modelos
 BASE_PATH = os.path.join(
