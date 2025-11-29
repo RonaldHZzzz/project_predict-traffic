@@ -1,4 +1,11 @@
 "use client";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
@@ -24,8 +31,7 @@ import { PredictionResponse } from "@/interfaces/prediction-response.interface";
 const api = useCustomApi();
 
 const MapDisplay = dynamic<MapDisplayProps>(
-  () =>
-    import("@/components/map-display").then((mod) => mod.MapDisplay),
+  () => import("@/components/map-display").then((mod) => mod.MapDisplay),
   {
     ssr: false,
     loading: () => <Skeleton className="w-full h-full bg-slate-900/50" />,
@@ -54,30 +60,51 @@ const GlassCard = ({
 );
 
 // --- NUEVO COMPONENTE: Resultados de la Predicción ---
-const PredictionResults = ({ data, onClose }: { data: PredictionResponse[], onClose: () => void }) => (
+const PredictionResults = ({
+  data,
+  onClose,
+}: {
+  data: PredictionResponse[];
+  onClose: () => void;
+}) => (
   <div className="bg-slate-900/90 backdrop-blur-md border border-white/10 p-4 rounded-xl max-h-[300px] overflow-y-auto w-full animate-in slide-in-from-left fade-in duration-300">
     <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-900/95 p-2 z-10 border-b border-white/10">
       <h3 className="text-sm font-bold text-blue-400">Predicción 24 Horas</h3>
-      <button onClick={onClose} className="text-xs text-muted-foreground hover:text-white transition-colors">
+      <button
+        onClick={onClose}
+        className="text-xs text-muted-foreground hover:text-white transition-colors"
+      >
         Cerrar
       </button>
     </div>
     <div className="space-y-2">
       {data.map((item, idx) => (
-        <div key={idx} className="flex justify-between items-center text-xs p-2 bg-white/5 rounded border border-white/5 hover:bg-white/10 transition-colors">
+        <div
+          key={idx}
+          className="flex justify-between items-center text-xs p-2 bg-white/5 rounded border border-white/5 hover:bg-white/10 transition-colors"
+        >
           <div className="flex flex-col">
-            <span className="font-mono text-white font-bold">{item.fecha_hora ? '' : '' }</span>
+            <span className="font-mono text-white font-bold">
+              {item.fecha_hora ? "" : ""}
+            </span>
             {/* <span className="text-[10px] text-muted-foreground">{item.}</span> */}
           </div>
           <div className="flex items-center gap-3">
-             <span className={cn(
-               "font-bold px-2 py-0.5 rounded-full bg-black/40",
-               item.nivel_congestion > 3 ? "text-red-400 border border-red-500/30" : 
-               item.nivel_congestion > 2 ? "text-yellow-400 border border-yellow-500/30" : "text-emerald-400 border border-emerald-500/30"
-             )}>
-               Nvl {item.nivel_congestion}
-             </span>
-             <span className="text-muted-foreground w-16 text-right">{item.nivel_congestion.toFixed(1)} km/h</span>
+            <span
+              className={cn(
+                "font-bold px-2 py-0.5 rounded-full bg-black/40",
+                item.nivel_congestion > 3
+                  ? "text-red-400 border border-red-500/30"
+                  : item.nivel_congestion > 2
+                  ? "text-yellow-400 border border-yellow-500/30"
+                  : "text-emerald-400 border border-emerald-500/30"
+              )}
+            >
+              Nvl {item.nivel_congestion}
+            </span>
+            <span className="text-muted-foreground w-16 text-right">
+              {item.nivel_congestion.toFixed(1)} km/h
+            </span>
           </div>
         </div>
       ))}
@@ -114,6 +141,7 @@ const FlowStyles = () => (
 );
 
 export default function DashboardPage() {
+  const [vehicleType, setVehicleType] = useState("auto");
   const [trafficPoints, setTrafficPoints] = useState<any[]>([]);
   const [segmentos, setSegmentos] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any | null>(null);
@@ -122,14 +150,20 @@ export default function DashboardPage() {
 
   // Estado para la selección interactiva de Puntos
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
-  
+
   // Estado para la selección interactiva de Segmentos (Tramos)
-  const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(null);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(
+    null
+  );
 
   // --- NUEVOS ESTADOS: Predicción ---
-  const [predictionDate, setPredictionDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [predictionDate, setPredictionDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
   const [isPredicting, setIsPredicting] = useState(false);
-  const [predictionData, setPredictionData] = useState<PredictionResponse[] | null>(null);
+  const [predictionData, setPredictionData] = useState<
+    PredictionResponse[] | null
+  >(null);
 
   const [matrixData, setMatrixData] = useState<any | null>(null);
   const [matrixError, setMatrixError] = useState<string | null>(null);
@@ -192,7 +226,7 @@ export default function DashboardPage() {
   useEffect(() => {
     loadData();
     setDataInterval();
-    
+
     return () => clearDataInterval();
   }, []);
 
@@ -200,8 +234,8 @@ export default function DashboardPage() {
   const handleSegmentSelect = (id: number | null) => {
     setSelectedSegmentId(id);
     // Limpiamos predicciones al cambiar de segmento para evitar confusión
-    setPredictionData(null); 
-    
+    setPredictionData(null);
+
     if (id) {
       setSelectedPointId(null);
       clearDataInterval();
@@ -220,13 +254,18 @@ export default function DashboardPage() {
     setPredictionData(null); // Limpiar anterior
 
     try {
-      const data = await api.post<PredictionResponse[]>('api/recommend-route/', {  fecha_hora: predictionDate });
+      const data = await api.post<PredictionResponse[]>(
+        "api/recommend-route/",
+        { fecha_hora: predictionDate }
+      );
       // const data = await api.post<PredictionResponse[]>('api/recommend-route/', { segmentId: selectedSegmentId, date: predictionDate });
       setPredictionData(data.data);
     } catch (error) {
       console.error("Error en predicción:", error);
       // Aquí podrías usar un toast para mostrar el error
-      alert("Error al obtener la predicción. Revisa la conexión con el backend.");
+      alert(
+        "Error al obtener la predicción. Revisa la conexión con el backend."
+      );
     } finally {
       setIsPredicting(false);
     }
@@ -290,7 +329,7 @@ export default function DashboardPage() {
       {/* CAPA 1: EL MAPA DE FONDO */}
       <div className="absolute inset-0 z-0">
         {!isLoading && trafficPoints.length > 0 ? (
-          <MapDisplay 
+          <MapDisplay
             points={trafficPoints}
             segmentos={segmentos}
             selectedSegmentId={selectedSegmentId}
@@ -322,26 +361,26 @@ export default function DashboardPage() {
               scrollbarStyles
             )}
           >
-              {/* PANEL DE CONTROL (Ahora con props de predicción) */}
-              <GlassCard>
-                <ControlPanel 
-                  selectedDate={predictionDate}
-                  onDateChange={setPredictionDate}
-                  onPredict={handleRunPrediction}
-                  isPredicting={isPredicting}
-                  hasSelectedSegment={!!selectedSegmentId}
-                />
-              </GlassCard>
+            {/* PANEL DE CONTROL (Ahora con props de predicción) */}
+            <GlassCard>
+              <ControlPanel
+                selectedDate={predictionDate}
+                onDateChange={setPredictionDate}
+                onPredict={handleRunPrediction}
+                isPredicting={isPredicting}
+                hasSelectedSegment={!!selectedSegmentId}
+              />
+            </GlassCard>
 
-              {/* RESULTADOS DE PREDICCIÓN (Nuevo bloque) */}
-              {predictionData && (
-                <div className="pointer-events-auto">
-                   <PredictionResults 
-                      data={predictionData} 
-                      onClose={() => setPredictionData(null)}
-                   />
-                </div>
-              )}
+            {/* RESULTADOS DE PREDICCIÓN (Nuevo bloque) */}
+            {predictionData && (
+              <div className="pointer-events-auto">
+                <PredictionResults
+                  data={predictionData}
+                  onClose={() => setPredictionData(null)}
+                />
+              </div>
+            )}
 
             {/* Panel de Métricas Principales */}
             {metrics && (
@@ -400,13 +439,24 @@ export default function DashboardPage() {
           {/* COLUMNA DERECHA: PUNTOS DE MONITOREO */}
           <div className="w-full md:w-1/3 lg:w-1/4 flex flex-col justify-end pointer-events-none gap-2">
             {/* Título de la sección flotante */}
-            <div className="bg-background/40 backdrop-blur-md border border-white/10 rounded-lg p-2 px-4 flex justify-between items-center pointer-events-auto">
+            <div className="bg-background/40 backdrop-blur-md border border-white/10 rounded-lg p-2 px-3 flex items-center justify-between pointer-events-auto gap-3">
               <h3 className="text-sm font-bold text-foreground/90">
                 Puntos de Monitoreo
               </h3>
-              <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-muted-foreground">
-                {trafficPoints.length} activos
-              </span>
+
+              <div className="flex items-center">
+                <Select value={vehicleType} onValueChange={setVehicleType}>
+                  <SelectTrigger className="w-[110px] bg-white/10 border-white/20 text-xs h-7">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="auto">Automóvil</SelectItem>
+                    <SelectItem value="moto">Moto</SelectItem>
+                    <SelectItem value="bus">Bus</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div
@@ -470,7 +520,9 @@ export default function DashboardPage() {
                         <h3
                           className={cn(
                             "font-bold text-sm transition-colors line-clamp-1",
-                            isSelected ? "text-foreground" : "text-foreground/80"
+                            isSelected
+                              ? "text-foreground"
+                              : "text-foreground/80"
                           )}
                         >
                           {point.name}
@@ -535,6 +587,18 @@ export default function DashboardPage() {
                           {Math.round(point.congestion)}%
                         </span>
                       </div>
+                      {/* NUEVO: ESTADO TEXTUAL */}
+                      <div className="text-xs font-semibold mt-1">
+                        Estado:{" "}
+                        {point.congestion < 30
+                          ? "Fluido"
+                          : point.congestion < 50
+                          ? "Moderado"
+                          : point.congestion < 75
+                          ? "Congestionado"
+                          : "Crítico"}
+                      </div>
+
                       <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
                         <div
                           className={cn(
