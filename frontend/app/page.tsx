@@ -454,6 +454,7 @@ export default function DashboardPage() {
                     <SelectItem value="auto">Automóvil</SelectItem>
                     <SelectItem value="moto">Moto</SelectItem>
                     <SelectItem value="bus">Bus</SelectItem>
+                    <SelectItem value="bus">NO SE</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
