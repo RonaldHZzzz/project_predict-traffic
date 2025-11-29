@@ -15,10 +15,13 @@ import { getMatrixData } from "@/lib/matrix";
 import { cn } from "@/lib/utils";
 import { CarFront, Gauge, Navigation } from "lucide-react";
 import Loader from "@/components/Loader";
-
+import { useCustomApi } from "@/hooks/useCustomApi";
 
 // Importamos los tipos
 import type { MapDisplayProps } from "@/components/map-display";
+import { PredictionResponse } from "@/interfaces/prediction-response.interface";
+
+const api = useCustomApi();
 
 const MapDisplay = dynamic<MapDisplayProps>(
   () =>
@@ -63,8 +66,8 @@ const PredictionResults = ({ data, onClose }: { data: PredictionResponse[], onCl
       {data.map((item, idx) => (
         <div key={idx} className="flex justify-between items-center text-xs p-2 bg-white/5 rounded border border-white/5 hover:bg-white/10 transition-colors">
           <div className="flex flex-col">
-            <span className="font-mono text-white font-bold">{item.hora}</span>
-            <span className="text-[10px] text-muted-foreground">{item.fecha}</span>
+            <span className="font-mono text-white font-bold">{item.fecha_hora ? '' : '' }</span>
+            {/* <span className="text-[10px] text-muted-foreground">{item.}</span> */}
           </div>
           <div className="flex items-center gap-3">
              <span className={cn(
@@ -74,7 +77,7 @@ const PredictionResults = ({ data, onClose }: { data: PredictionResponse[], onCl
              )}>
                Nvl {item.nivel_congestion}
              </span>
-             <span className="text-muted-foreground w-16 text-right">{item.velocidad_kmh.toFixed(1)} km/h</span>
+             <span className="text-muted-foreground w-16 text-right">{item.nivel_congestion.toFixed(1)} km/h</span>
           </div>
         </div>
       ))}
@@ -217,8 +220,9 @@ export default function DashboardPage() {
     setPredictionData(null); // Limpiar anterior
 
     try {
-      const data = await fetchTrafficPrediction(selectedSegmentId, predictionDate);
-      setPredictionData(data);
+      const data = await api.post<PredictionResponse[]>('api/recommend-route/', {  fecha_hora: predictionDate });
+      // const data = await api.post<PredictionResponse[]>('api/recommend-route/', { segmentId: selectedSegmentId, date: predictionDate });
+      setPredictionData(data.data);
     } catch (error) {
       console.error("Error en predicción:", error);
       // Aquí podrías usar un toast para mostrar el error
