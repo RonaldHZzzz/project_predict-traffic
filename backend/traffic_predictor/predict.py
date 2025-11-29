@@ -230,6 +230,8 @@ def predict_congestion_24h(segmento_id: int, fecha: str | None = None):
 
     future_df = pd.DataFrame(rows)
     future_df = pd.get_dummies(future_df, columns=["tipo_dia"], drop_first=False)
+    
+    future_df['ds'] = future_df['ds'].dt.tz_localize(None)
 
     # Asegurar columnas requeridas por Prophet
     for reg in model.extra_regressors.keys():
