@@ -67,9 +67,6 @@ export function Header() {
           <NavLink href="/analytics" icon={TrendingUp}>
             Análisis
           </NavLink>
-          <NavLink href="/admin" icon={Settings}>
-            Admin
-          </NavLink>
           <Button variant="ghost" onClick={handleLogout}>
             {userName
               ? `Cerrar sesión (${JSON.parse(userName)})`
@@ -109,15 +106,7 @@ export function Header() {
               Análisis
             </Button>
           </Link>
-          <Link href="/admin" onClick={() => setMobileMenuOpen(false)}>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sm hover:bg-white/10"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Admin
-            </Button>
-          </Link>
+
         </div>
       )}
     </header>

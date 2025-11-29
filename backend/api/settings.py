@@ -108,7 +108,6 @@ INSTALLED_APPS = [
 
     # Tu app
     'trafico',
-    'factores_externos',
     'traffic_predictor',
 ]
 
@@ -142,7 +141,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'api.wsgi.application'
 
-
+CORS_ALLOW_ALL_ORIGINS = True
+# O si usas lista blanca:
+CORS_ALLOWED_ORIGINS = ["http://localhost:3000"]
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 

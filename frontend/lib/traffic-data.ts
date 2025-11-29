@@ -72,7 +72,7 @@ export function getStatusLabel(status: string): string {
 // Obtener segmentos REALES desde Django
 // ---------------------------
 export async function getSegmentos(): Promise<Segmento[]> {
-  const response = await fetch("http://127.0.0.1:8000/segmentos/", {
+  const response = await fetch("http://127.0.0.1:8000/api/segmentos/", {
     cache: "no-store",
   });
 
