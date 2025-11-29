@@ -13,7 +13,8 @@ interface Segmento {
   capacidad_segmento: number
 }
 
-export function SegmentsVisualization() {
+export function SegmentsVisualization({ onSelectSegment }: { onSelectSegment?: (id: number | null) => void }) {
+
   const [segmentos, setSegmentos] = useState<Segmento[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -54,15 +55,27 @@ export function SegmentsVisualization() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
+
       {segmentos.map((seg) => (
-        <Card key={seg.segmento_id}>
+      <Card
+      key={seg.segmento_id}
+      className="cursor-pointer hover:bg-accent/40 transition"
+      onClick={() => onSelectSegment?.(Number(seg.segmento_id))}
+     >
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">{seg.segmento_nombre}</CardTitle>
-            <Badge className={getCongestionColor(seg.nivel_congestion)}>
-              {getCongestionLabel(seg.nivel_congestion)}
-            </Badge>
-          </CardHeader>
+  <CardTitle className="text-base">{seg.segmento_nombre}</CardTitle>
+
+  <Badge className={getCongestionColor(seg.nivel_congestion)}>
+    {getCongestionLabel(seg.nivel_congestion)}
+  </Badge>
+
+  {/* NUEVO: mostrar estado textual */}
+  <div className="mt-1 text-sm font-semibold">
+    Estado: {getCongestionLabel(seg.nivel_congestion)}
+  </div>
+</CardHeader>
+
           <CardContent className="space-y-3">
             <div className="space-y-2 text-sm">
               <div className="flex justify-between items-center">

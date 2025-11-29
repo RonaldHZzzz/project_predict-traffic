@@ -1,4 +1,11 @@
 "use client";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
@@ -77,6 +84,7 @@ const FlowStyles = () => (
 );
 
 export default function DashboardPage() {
+  const [vehicleType, setVehicleType] = useState("auto");
   const [trafficPoints, setTrafficPoints] = useState<any[]>([]);
   const [segmentos, setSegmentos] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any | null>(null);
@@ -270,6 +278,9 @@ export default function DashboardPage() {
               <GlassCard>
                 <ControlPanel />
               </GlassCard>
+              {/* Lista de Segmentos con Selección */}
+
+
             {/* Panel de Métricas Principales */}
             {metrics && (
               <GlassCard>
@@ -329,14 +340,26 @@ export default function DashboardPage() {
           {/* COLUMNA DERECHA: PUNTOS DE MONITOREO MEJORADOS E INTERACTIVOS */}
           <div className="w-full md:w-1/3 lg:w-1/4 flex flex-col justify-end pointer-events-none gap-2">
             {/* Título de la sección flotante */}
-            <div className="bg-background/40 backdrop-blur-md border border-white/10 rounded-lg p-2 px-4 flex justify-between items-center pointer-events-auto">
-              <h3 className="text-sm font-bold text-foreground/90">
-                Puntos de Monitoreo
-              </h3>
-              <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-muted-foreground">
-                {trafficPoints.length} activos
-              </span>
-            </div>
+        <div className="bg-background/40 backdrop-blur-md border border-white/10 rounded-lg p-2 px-3 flex items-center justify-between pointer-events-auto gap-3">
+  <h3 className="text-sm font-bold text-foreground/90">
+    Puntos de Monitoreo
+  </h3>
+
+  <div className="flex items-center">
+    <Select value={vehicleType} onValueChange={setVehicleType}>
+      <SelectTrigger className="w-[110px] bg-white/10 border-white/20 text-xs h-7">
+        <SelectValue placeholder="Tipo" />
+      </SelectTrigger>
+
+      <SelectContent>
+        <SelectItem value="auto">Automóvil</SelectItem>
+        <SelectItem value="moto">Moto</SelectItem>
+        <SelectItem value="bus">Bus</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+</div>
+
 
             <div
               className={cn(
@@ -350,20 +373,28 @@ export default function DashboardPage() {
                 const gradientColor = getGradientColor(point.congestion);
 
                 return (
-                  <GlassCard
-                    key={point.id}
-                    onClick={() => {
-                      // Al seleccionar un punto, limpiamos la selección de segmentos
-                      setSelectedPointId(isSelected ? null : point.id);
-                      setSelectedSegmentId(null);
-                    }}
-                    className={cn(
-                      "p-4 rounded-xl cursor-pointer hover:bg-white/5 group relative overflow-hidden",
-                      isSelected
-                        ? cn("border-opacity-100 scale-[1.02]", borderStyle)
-                        : "border-white/10 hover:border-white/20"
-                    )}
-                  >
+          <GlassCard
+  key={point.id}
+  onClick={() => {
+    if (isSelected) {
+      // Si ya estaba seleccionado, lo deseleccionamos todo
+      setSelectedPointId(null);
+      handleSegmentSelect(null);          // ⬅ limpia el segmento
+    } else {
+      // Al seleccionar un punto, seleccionamos también su tramo en el mapa
+      const segId = Number(point.id);     // id de TrafficPoint = segmento_id
+      setSelectedPointId(point.id);
+      handleSegmentSelect(segId);         // ⬅ esto actualiza selectedSegmentId y recarga datos
+    }
+  }}
+  className={cn(
+    "p-4 rounded-xl cursor-pointer hover:bg-white/5 group relative overflow-hidden",
+    isSelected
+      ? cn("border-opacity-100 scale-[1.02]", borderStyle)
+      : "border-white/10 hover:border-white/20"
+  )}
+>
+
                     {/* Fondo brillante al seleccionar */}
                     {isSelected && (
                       <div
@@ -463,6 +494,19 @@ export default function DashboardPage() {
                           {Math.round(point.congestion)}%
                         </span>
                       </div>
+                      {/* NUEVO: ESTADO TEXTUAL */}
+                      <div className="text-xs font-semibold mt-1">
+                        Estado: {
+                          point.congestion < 30
+                            ? "Fluido"
+                            : point.congestion < 50
+                            ? "Moderado"
+                            : point.congestion < 75
+                            ? "Congestionado"
+                            : "Crítico"
+                        }
+                      </div>
+
                       <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
                         <div
                           className={cn(
