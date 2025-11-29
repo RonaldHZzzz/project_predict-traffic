@@ -21,14 +21,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getMatrixData } from "@/lib/matrix";
 import { cn } from "@/lib/utils";
 import { CarFront, Gauge, Navigation } from "lucide-react";
-import Loader from "@/components/Loader";
-import { useCustomApi } from "@/hooks/useCustomApi";
 
 // Importamos los tipos
 import type { MapDisplayProps } from "@/components/map-display";
-import { PredictionResponse } from "@/interfaces/prediction-response.interface";
-
-const api = useCustomApi();
+import { se } from "date-fns/locale";
 
 const MapDisplay = dynamic<MapDisplayProps>(
   () => import("@/components/map-display").then((mod) => mod.MapDisplay),
@@ -56,59 +52,6 @@ const GlassCard = ({
     )}
   >
     {children}
-  </div>
-);
-
-// --- NUEVO COMPONENTE: Resultados de la Predicción ---
-const PredictionResults = ({
-  data,
-  onClose,
-}: {
-  data: PredictionResponse[];
-  onClose: () => void;
-}) => (
-  <div className="bg-slate-900/90 backdrop-blur-md border border-white/10 p-4 rounded-xl max-h-[300px] overflow-y-auto w-full animate-in slide-in-from-left fade-in duration-300">
-    <div className="flex justify-between items-center mb-4 sticky top-0 bg-slate-900/95 p-2 z-10 border-b border-white/10">
-      <h3 className="text-sm font-bold text-blue-400">Predicción 24 Horas</h3>
-      <button
-        onClick={onClose}
-        className="text-xs text-muted-foreground hover:text-white transition-colors"
-      >
-        Cerrar
-      </button>
-    </div>
-    <div className="space-y-2">
-      {data.map((item, idx) => (
-        <div
-          key={idx}
-          className="flex justify-between items-center text-xs p-2 bg-white/5 rounded border border-white/5 hover:bg-white/10 transition-colors"
-        >
-          <div className="flex flex-col">
-            <span className="font-mono text-white font-bold">
-              {item.fecha_hora ? "" : ""}
-            </span>
-            {/* <span className="text-[10px] text-muted-foreground">{item.}</span> */}
-          </div>
-          <div className="flex items-center gap-3">
-            <span
-              className={cn(
-                "font-bold px-2 py-0.5 rounded-full bg-black/40",
-                item.nivel_congestion > 3
-                  ? "text-red-400 border border-red-500/30"
-                  : item.nivel_congestion > 2
-                  ? "text-yellow-400 border border-yellow-500/30"
-                  : "text-emerald-400 border border-emerald-500/30"
-              )}
-            >
-              Nvl {item.nivel_congestion}
-            </span>
-            <span className="text-muted-foreground w-16 text-right">
-              {item.nivel_congestion.toFixed(1)} km/h
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
   </div>
 );
 
@@ -151,22 +94,17 @@ export default function DashboardPage() {
   // Estado para la selección interactiva de Puntos
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
 
-  // Estado para la selección interactiva de Segmentos (Tramos)
+  // --- NUEVO: Estado para la selección interactiva de Segmentos (Tramos) ---
   const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(
     null
   );
 
-  // --- NUEVOS ESTADOS: Predicción ---
-  const [predictionDate, setPredictionDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  );
-  const [isPredicting, setIsPredicting] = useState(false);
-  const [predictionData, setPredictionData] = useState<
-    PredictionResponse[] | null
-  >(null);
-
   const [matrixData, setMatrixData] = useState<any | null>(null);
   const [matrixError, setMatrixError] = useState<string | null>(null);
+
+  // Estados para el ControlPanel
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [isPredicting, setIsPredicting] = useState(false);
 
   // Ref para manejar el intervalo
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -230,44 +168,19 @@ export default function DashboardPage() {
     return () => clearDataInterval();
   }, []);
 
-  // Manejador para la selección de segmentos
+  // --- NUEVO: Manejador para la selección de segmentos ---
   const handleSegmentSelect = (id: number | null) => {
     setSelectedSegmentId(id);
-    // Limpiamos predicciones al cambiar de segmento para evitar confusión
-    setPredictionData(null);
 
     if (id) {
+      // Si se selecciona un segmento, cargar datos específicos y detener el intervalo
       setSelectedPointId(null);
       clearDataInterval();
       loadData(id);
     } else {
+      // Si se deselecciona, volver a la carga normal con intervalo
       loadData();
       setDataInterval();
-    }
-  };
-
-  // --- NUEVA LÓGICA: Ejecutar Predicción ---
-  const handleRunPrediction = async () => {
-    if (!selectedSegmentId || !predictionDate) return;
-
-    setIsPredicting(true);
-    setPredictionData(null); // Limpiar anterior
-
-    try {
-      const data = await api.post<PredictionResponse[]>(
-        "api/recommend-route/",
-        { fecha_hora: predictionDate }
-      );
-      // const data = await api.post<PredictionResponse[]>('api/recommend-route/', { segmentId: selectedSegmentId, date: predictionDate });
-      setPredictionData(data.data);
-    } catch (error) {
-      console.error("Error en predicción:", error);
-      // Aquí podrías usar un toast para mostrar el error
-      alert(
-        "Error al obtener la predicción. Revisa la conexión con el backend."
-      );
-    } finally {
-      setIsPredicting(false);
     }
   };
 
@@ -332,12 +245,16 @@ export default function DashboardPage() {
           <MapDisplay
             points={trafficPoints}
             segmentos={segmentos}
+            // --- NUEVO: Pasamos las props de control de estado al mapa ---
             selectedSegmentId={selectedSegmentId}
             onSelectSegment={handleSegmentSelect}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center relative z-10">
-            <Loader />
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+              <span className="text-white animate-pulse">Cargando Mapa...</span>
+            </div>
           </div>
         )}
       </div>
@@ -361,26 +278,20 @@ export default function DashboardPage() {
               scrollbarStyles
             )}
           >
-            {/* PANEL DE CONTROL (Ahora con props de predicción) */}
+            {/*PANEL DE CONTROL ARRIBA*/}
             <GlassCard>
               <ControlPanel
-                selectedDate={predictionDate}
-                onDateChange={setPredictionDate}
-                onPredict={handleRunPrediction}
+                onDateChange={setSelectedDate}
+                onPredictingChange={setIsPredicting}
+                onPredict={(segmentoId) =>{
+                  handleSegmentSelect(segmentoId);
+                }}
                 isPredicting={isPredicting}
-                hasSelectedSegment={!!selectedSegmentId}
+                selectedDate={selectedDate}
+                hasSelectedSegment={selectedSegmentId !== null}
               />
             </GlassCard>
-
-            {/* RESULTADOS DE PREDICCIÓN (Nuevo bloque) */}
-            {predictionData && (
-              <div className="pointer-events-auto">
-                <PredictionResults
-                  data={predictionData}
-                  onClose={() => setPredictionData(null)}
-                />
-              </div>
-            )}
+            {/* Lista de Segmentos con Selección */}
 
             {/* Panel de Métricas Principales */}
             {metrics && (
@@ -436,7 +347,7 @@ export default function DashboardPage() {
 
           <div className="hidden md:block md:flex-1" />
 
-          {/* COLUMNA DERECHA: PUNTOS DE MONITOREO */}
+          {/* COLUMNA DERECHA: PUNTOS DE MONITOREO MEJORADOS E INTERACTIVOS */}
           <div className="w-full md:w-1/3 lg:w-1/4 flex flex-col justify-end pointer-events-none gap-2">
             {/* Título de la sección flotante */}
             <div className="bg-background/40 backdrop-blur-md border border-white/10 rounded-lg p-2 px-3 flex items-center justify-between pointer-events-auto gap-3">
@@ -475,10 +386,16 @@ export default function DashboardPage() {
                   <GlassCard
                     key={point.id}
                     onClick={() => {
-                      // Al seleccionar un punto, limpiamos la selección de segmentos
-                      setSelectedPointId(isSelected ? null : point.id);
-                      setSelectedSegmentId(null);
-                      setPredictionData(null); // Limpiar predicción si se cambia a punto
+                      if (isSelected) {
+                        // Si ya estaba seleccionado, lo deseleccionamos todo
+                        setSelectedPointId(null);
+                        handleSegmentSelect(null); // ⬅ limpia el segmento
+                      } else {
+                        // Al seleccionar un punto, seleccionamos también su tramo en el mapa
+                        const segId = Number(point.id); // id de TrafficPoint = segmento_id
+                        setSelectedPointId(point.id);
+                        handleSegmentSelect(segId); // ⬅ esto actualiza selectedSegmentId y recarga datos
+                      }
                     }}
                     className={cn(
                       "p-4 rounded-xl cursor-pointer hover:bg-white/5 group relative overflow-hidden",
