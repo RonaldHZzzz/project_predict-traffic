@@ -33,6 +33,7 @@ interface ControlPanelProps {
   predictionHour: number;
   onPredictionHourChange: (hour: number) => void;
   onRecommendRoute: () => void;
+  isRecommending: boolean;
 }
 
 export function ControlPanel({
@@ -43,6 +44,7 @@ export function ControlPanel({
   predictionHour,
   onPredictionHourChange,
   onRecommendRoute,
+  isRecommending,
 }: ControlPanelProps) {
   return (
     <div className="h-full flex flex-col gap-4">
@@ -132,12 +134,21 @@ export function ControlPanel({
 
           {/* Acción de Recomendar Ruta */}
           <Button
-            disabled={!predictionDate}
+            disabled={!predictionDate || isRecommending}
             className="w-full gap-2 transition-colors hover:bg-blue-700"
             onClick={onRecommendRoute}
           >
-            <Waypoints className="w-4 h-4" />
-            Recomendar Mejor Ruta
+            {isRecommending ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                <span>Calculando...</span>
+              </>
+            ) : (
+              <>
+                <Waypoints className="w-4 h-4" />
+                <span>Recomendar Mejor Ruta</span>
+              </>
+            )}
           </Button>
         </div>
       )}
