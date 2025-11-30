@@ -146,7 +146,7 @@ def paradas_por_segmento(request, segmento_id):
     segmento = get_object_or_404(Segmento, pk=segmento_id)
 
     # Aumentamos el radio por defecto a 300m (puedes subirlo si quieres)
-    dist_metros = float(request.query_params.get("dist", 300))
+    dist_metros = float(request.query_params.get("dist", 30))
 
     # Convertir metros a grados aprox (1 grado ~ 111,000 m)
     dist_grados = dist_metros / 111_000.0
