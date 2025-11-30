@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useMemo, useEffect } from "react";
 import { useMap } from "react-leaflet";
 import type { TrafficPoint, Segmento, BusStop } from "@/lib/traffic-data";
+import { MapContent } from "./MapContent";
 
 // Fix Leaflet marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -16,32 +17,12 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
 
-const busStopIcon = L.divIcon({
-  html: `<div class="bus-stop-icon">🚌</div>`,
-  className: "",
-  iconSize: [30, 30],
-  iconAnchor: [15, 30],
-  popupAnchor: [0, -28],
-});
-
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
   { ssr: false }
 );
 const TileLayer = dynamic(
   () => import("react-leaflet").then((mod) => mod.TileLayer),
-  { ssr: false }
-);
-const Marker = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Marker),
-  { ssr: false }
-);
-const Popup = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Popup),
-  { ssr: false }
-);
-const Polyline = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Polyline),
   { ssr: false }
 );
 
@@ -106,7 +87,6 @@ export function MapDisplay({
     return map;
   }, [points]);
 
-
   const getLineColor = (congestion: number) => {
     if (congestion < 30) return "#10b981"; // verde
     if (congestion < 50) return "#f59e0b"; // amarillo
@@ -146,7 +126,6 @@ export function MapDisplay({
       `}</style>
 
       <MapContainer
-        key={JSON.stringify(points)}
         center={mapCenter}
         zoom={13}
         style={{ height: "100%", width: "100%" }}
@@ -160,75 +139,15 @@ export function MapDisplay({
           attribution="&copy; OpenStreetMap contributors"
         />
 
-        {segmentos.map((segmento) => {
-          const positions = segmento.geometry.map(
-            ([lng, lat]) => [lat, lng] as [number, number]
-          );
-          const congestion =
-            congestionBySegmento.get(segmento.segmento_id) ?? 25;
-          const color = getLineColor(congestion);
-
-          const isSelected = selectedSegmentId === segmento.segmento_id;
-          const isAnySelected = selectedSegmentId !== null;
-
-          const opacity = isAnySelected ? (isSelected ? 1 : 0.2) : 0.8;
-          const weight = isSelected ? 8 : 5;
-          const className = isSelected ? "segment-glow" : "";
-
-          const eventHandlers = {
-            click: () => {
-              if (onSelectSegment) {
-                onSelectSegment(
-                  isSelected ? null : segmento.segmento_id,
-                  null
-                );
-              }
-            },
-          };
-
-          return (
-            <Polyline
-              key={segmento.segmento_id}
-              positions={positions}
-              color={color}
-              weight={weight}
-              opacity={opacity}
-              lineJoin="round"
-              className={className}
-              eventHandlers={eventHandlers}
-            />
-          );
-        })}
-
-        {points.map((point) => (
-          <Marker key={point.id} position={[point.lat, point.lng]}>
-            <Popup>
-              <div className="text-sm">
-                <p className="font-semibold">{point.name}</p>
-                <p className="text-xs mt-1">
-                  Congestión: {Math.round(point.congestion)}%
-                </p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-
-        {(busStops ?? []).map((stop) => (
-          <Marker
-            key={`stop-${stop.id}`}
-            position={[stop.lat, stop.lon]}
-            icon={busStopIcon}
-          >
-            <Popup>
-              <div className="text-sm">
-                <p className="font-semibold">
-                  {stop.nombre || "Parada de bus"}
-                </p>
-                <p className="text-xs mt-1">Segmento: {stop.segmento}</p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        <MapContent
+          points={points}
+          segmentos={segmentos}
+          busStops={busStops ?? []}
+          selectedSegmentId={selectedSegmentId}
+          onSelectSegment={onSelectSegment}
+          congestionBySegmento={congestionBySegmento}
+          getLineColor={getLineColor}
+        />
       </MapContainer>
     </div>
   );
