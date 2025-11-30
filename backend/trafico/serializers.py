@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Segmento, MedicionTrafico
+from .models import Segmento, MedicionTrafico, ParadaBus
+
 
 class SegmentoMapSerializer(serializers.ModelSerializer):
     """
@@ -17,15 +18,42 @@ class SegmentoMapSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Segmento
-        fields = ('segmento_id', 'nombre', 'geometry')
+        fields = ("segmento_id", "nombre", "geometry")
+
 
 class MedicionStatsSerializer(serializers.ModelSerializer):
     """
     Serializador para GRÁFICOS y ESTADÍSTICAS.
     Muestra los datos puros sin geometría.
     """
-    nombre_tramo = serializers.CharField(source='segmento.nombre', read_only=True)
+    nombre_tramo = serializers.CharField(source="segmento.nombre", read_only=True)
 
     class Meta:
         model = MedicionTrafico
-        fields = ('id', 'fecha_hora', 'velocidad_promedio', 'nivel_congestion', 'nombre_tramo')
+        fields = ("id", "fecha_hora", "velocidad_promedio", "nivel_congestion", "nombre_tramo")
+
+
+class ParadaBusSerializer(serializers.ModelSerializer):
+    """
+    Serializador para las paradas de bus.
+    Expone lat/lon listos para el frontend.
+    """
+    lat = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ParadaBus
+        fields = (
+            "id",
+            "osm_id",
+            "nombre",
+            "segmento",
+            "lat",
+            "lon",
+        )
+
+    def get_lat(self, obj):
+        return obj.geom.y if obj.geom else None  
+
+    def get_lon(self, obj):
+        return obj.geom.x if obj.geom else None  
