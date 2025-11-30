@@ -1,78 +1,114 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { MapPin, Menu } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import Link from "next/link";
+import { MapPin, Menu, Activity, TrendingUp, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 export function Header() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    setUserName(user);
+  }, []);
+
+  const handleLogout = () => {
+    // Eliminar cookies
+    document.cookie = "access=; path=/; max-age=0";
+    document.cookie = "refresh=; path=/; max-age=0";
+    window.location.href = "/login";
+    localStorage.removeItem("user");
+  };
+
+  // Link helper para mantener el código limpio
+  const NavLink = ({ href, icon: Icon, children }: any) => (
+    <Link href={href}>
+      <Button
+        variant="ghost"
+        className="text-sm text-foreground/80 hover:text-white hover:bg-white/10 transition-all gap-2"
+      >
+        {Icon && <Icon className="w-4 h-4 opacity-70" />}
+        {children}
+      </Button>
+    </Link>
+  );
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    // Quitamos 'sticky' y bordes porque el contenedor padre en DashboardPage ya maneja el efecto Glass
+    <header className="w-full bg-transparent">
       <div className="flex h-16 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        {/* LOGO AREA */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-blue-600 to-blue-400 text-white shadow-lg shadow-blue-500/20">
             <MapPin className="h-5 w-5" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Tráfico Los Chorros</h1>
-            <p className="text-xs text-muted-foreground">Sistema de Monitoreo</p>
+          <div className="flex flex-col">
+            <h1 className="text-lg font-bold tracking-tight text-foreground leading-none">
+              Tráfico Los Chorros
+            </h1>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Sistema en vivo
+              </p>
+            </div>
           </div>
         </div>
 
-        <nav className="hidden md:flex items-center gap-1">
-          <Link href="/">
-            <Button variant="ghost" className="text-sm">
-              Dashboard
-            </Button>
-          </Link>
-          <Link href="/analytics">
-            <Button variant="ghost" className="text-sm">
-              Análisis
-            </Button>
-          </Link>
-          <Link href="/predictions">
-            <Button variant="ghost" className="text-sm">
-              Predicciones
-            </Button>
-          </Link>
-          <Link href="/admin">
-            <Button variant="ghost" className="text-sm">
-              Admin
-            </Button>
-          </Link>
+        {/* DESKTOP NAV */}
+        <nav className="hidden md:flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/5">
+          <NavLink href="/" icon={Activity}>
+            Dashboard
+          </NavLink>
+          <NavLink href="/analytics" icon={TrendingUp}>
+            Análisis
+          </NavLink>
+          <Button variant="ghost" onClick={handleLogout}>
+            {userName
+              ? `Cerrar sesión (${JSON.parse(userName)})`
+              : "Cerrar sesión"}
+          </Button>
         </nav>
 
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+        {/* MOBILE MENU TOGGLE */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden hover:bg-white/10 text-foreground"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
           <Menu className="h-5 w-5" />
         </Button>
       </div>
 
+      {/* MOBILE MENU DROPDOWN */}
       {mobileMenuOpen && (
-        <nav className="flex flex-col gap-2 border-t border-border px-4 py-2 md:hidden">
-          <Link href="/">
-            <Button variant="ghost" className="w-full justify-start text-sm">
+        <div className="absolute top-20 left-4 right-4 z-50 flex flex-col gap-2 p-2 rounded-2xl bg-slate-900/90 backdrop-blur-xl border border-white/10 shadow-2xl md:hidden animate-in fade-in slide-in-from-top-5">
+          <Link href="/" onClick={() => setMobileMenuOpen(false)}>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-sm hover:bg-white/10"
+            >
+              <Activity className="w-4 h-4 mr-2" />
               Dashboard
             </Button>
           </Link>
-          <Link href="/analytics">
-            <Button variant="ghost" className="w-full justify-start text-sm">
+          <Link href="/analytics" onClick={() => setMobileMenuOpen(false)}>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-sm hover:bg-white/10"
+            >
+              <TrendingUp className="w-4 h-4 mr-2" />
               Análisis
             </Button>
           </Link>
-          <Link href="/predictions">
-            <Button variant="ghost" className="w-full justify-start text-sm">
-              Predicciones
-            </Button>
-          </Link>
-          <Link href="/admin">
-            <Button variant="ghost" className="w-full justify-start text-sm">
-              Admin
-            </Button>
-          </Link>
-        </nav>
+
+        </div>
       )}
     </header>
-  )
+  );
 }

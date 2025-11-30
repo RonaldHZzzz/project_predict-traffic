@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class FactoresExternosConfig(AppConfig):
+class TrafficPredictorConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'factores_externos'
+    name = 'traffic_predictor'

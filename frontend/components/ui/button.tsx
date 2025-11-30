@@ -19,6 +19,9 @@ const buttonVariants = cva(
         ghost:
           'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         link: 'text-primary underline-offset-4 hover:underline',
+        liquid: 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white hover:opacity-90',
+        glass: 'bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-lg hover:bg-white/20 transition-all duration-300',
+        liquidGlass: 'bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 backdrop-blur-md border border-white/30 text-white shadow-xl hover:from-blue-500/30 hover:via-purple-500/30 hover:to-pink-500/30 transition-all duration-500 relative before:absolute before:inset-0 before:rounded-md before:bg-gradient-to-r before:from-blue-400/10 before:via-purple-400/10 before:to-pink-400/10 before:blur-sm',
       },
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',

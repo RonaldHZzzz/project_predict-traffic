@@ -1,73 +1,127 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import type { TrafficMetrics } from "@/lib/traffic-data"
+import { Badge } from "@/components/ui/badge";
+import type { TrafficMetrics } from "@/lib/traffic-data";
+import { cn } from "@/lib/utils";
 
 interface MetricsGridProps {
-  metrics: TrafficMetrics
-  congestionLevel: number
+  metrics: TrafficMetrics;
+  congestionLevel: number;
 }
 
 export function MetricsGrid({ metrics, congestionLevel }: MetricsGridProps) {
   const getCongestingStatus = (level: number) => {
     if (level < 30)
-      return { label: "Fluido", className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" }
+      return {
+        label: "Fluido",
+        className:
+          "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30",
+      };
     if (level < 50)
-      return { label: "Moderado", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" }
+      return {
+        label: "Moderado",
+        className:
+          "bg-yellow-500/20 text-yellow-300 border-yellow-500/30 hover:bg-yellow-500/30",
+      };
     if (level < 75)
       return {
-        label: "Congestionado",
-        className: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100",
-      }
-    return { label: "Colapsado", className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100" }
-  }
+        label: "Denso",
+        className:
+          "bg-orange-500/20 text-orange-300 border-orange-500/30 hover:bg-orange-500/30",
+      };
+    return {
+      label: "Colapsado",
+      className:
+        "bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30",
+    };
+  };
 
-  const status = getCongestingStatus(congestionLevel)
+  const status = getCongestingStatus(congestionLevel);
+
+  // Componente interno para las "Mini Cards" de métricas
+  const MetricItem = ({
+    title,
+    value,
+    subtext,
+    highlight = false,
+  }: {
+    title: string;
+    value: React.ReactNode;
+    subtext?: string;
+    highlight?: boolean;
+  }) => (
+    <div
+      className={cn(
+        "flex flex-col p-3 rounded-xl border transition-colors",
+        highlight
+          ? "bg-primary/10 border-primary/20"
+          : "bg-white/5 border-white/5 hover:bg-white/10"
+      )}
+    >
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+        {title}
+      </span>
+      <div className="mt-auto">
+        <div className="text-xl md:text-2xl font-bold tracking-tight flex items-baseline gap-1">
+          {value}
+        </div>
+        {subtext && (
+          <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+            {subtext}
+          </p>
+        )}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Estado General</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="text-3xl font-bold">{congestionLevel}%</div>
-            <Badge className={status.className}>{status.label}</Badge>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-2 gap-3 w-full">
+      {/* Estado General (Ocupa 2 columnas para destacar) */}
+      <div className="col-span-2 bg-white/5 border border-white/5 rounded-xl p-4 flex items-center justify-between">
+        <div>
+          <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+            Estado General
+          </span>
+          <div className="text-3xl font-bold mt-1">{congestionLevel}%</div>
+        </div>
+        <Badge variant="outline" className={cn("px-3 py-1 text-xs", status.className)}>
+          {status.label}
+        </Badge>
+      </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Tiempo Estimado</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold">{metrics.estimatedTime} min</div>
-          <p className="text-xs text-muted-foreground mt-2">De entrada a salida</p>
-        </CardContent>
-      </Card>
+      {/* Tiempo Estimado */}
+      <MetricItem
+        title="Tiempo Est."
+        value={
+          <>
+            {metrics.estimatedTime} <span className="text-xs font-normal text-muted-foreground">min</span>
+          </>
+        }
+        highlight
+      />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Vehículos por Hora</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold">{Math.round(metrics.totalVehicles / 1000)}k</div>
-          <p className="text-xs text-muted-foreground mt-2">Total en puntos monitoreados</p>
-        </CardContent>
-      </Card>
+      {/* Velocidad */}
+      <MetricItem
+        title="Velocidad"
+        value={
+          <>
+            {metrics.avgSpeed} <span className="text-xs font-normal text-muted-foreground">km/h</span>
+          </>
+        }
+      />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Velocidad Promedio</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold">{metrics.avgSpeed} km/h</div>
-          <p className="text-xs text-muted-foreground mt-2">En todo el tramo</p>
-        </CardContent>
-      </Card>
+      {/* Vehículos (Ocupa 2 columnas si quieres equilibrar, o déjalo en 1) */}
+      <div className="col-span-2">
+        <MetricItem
+            title="Flujo Total"
+            value={
+            <>
+                {Math.round(metrics.totalVehicles / 1000)}k <span className="text-xs font-normal text-muted-foreground">vehículos</span>
+            </>
+            }
+            subtext="Total detectado en puntos monitoreados"
+        />
+      </div>
     </div>
-  )
+  );
 }

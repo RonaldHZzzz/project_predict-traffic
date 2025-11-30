@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+from datetime import timedelta
 from pathlib import Path
 import os
 import sys
@@ -31,12 +31,12 @@ if os.name == 'nt':
         # Buscar en las posibles ubicaciones del entorno virtual
         possible_paths = [
             # Estructura típica: proyecto/backend/env/Lib/site-packages/osgeo
-            os.path.join(current_dir, 'env', 'Lib', 'site-packages', 'osgeo'),
+            os.path.join(current_dir, 'env','venv','.venv', 'Lib', 'site-packages', 'osgeo'),
             os.path.join(current_dir, '..', 'env', 'Lib', 'site-packages', 'osgeo'),
             os.path.join(current_dir, '..', '..', 'env', 'Lib', 'site-packages', 'osgeo'),
             
             # Estructura alternativa: proyecto/env/Lib/site-packages/osgeo
-            os.path.join(current_dir, '..', '..', '..', 'env', 'Lib', 'site-packages', 'osgeo'),
+            os.path.join(current_dir, '..', '..', '..', 'env','.venv', 'Lib', 'site-packages', 'osgeo'),
             
             # Para entornos virtuales en otras ubicaciones
             os.path.join(sys.prefix, 'Lib', 'site-packages', 'osgeo')
@@ -59,10 +59,11 @@ if os.name == 'nt':
     GDAL_DLL_NAME = 'gdal.dll'
     
     # 4. CRITICO PARA PYTHON 3.8+: Añadir directorio de DLLs de forma segura
-    try:
-        os.add_dll_directory(OSGEO_PATH)
-    except AttributeError:
-        pass # En versiones viejas de Python esto no existe, pero tú usas 3.12 así que funcionará
+    if OSGEO_PATH:
+        try:
+            os.add_dll_directory(OSGEO_PATH)
+        except AttributeError:
+            pass # En versiones viejas de Python esto no existe, pero tú usas 3.12 así que funcionará
 
 
 # os.path.expanduser('~') obtiene la carpeta del usuario actual (ej. C:\Users\Juan)
@@ -99,13 +100,15 @@ INSTALLED_APPS = [
 
     # Terceros
     'rest_framework',
+    'rest_framework_simplejwt',
+    'auth_api',
     'corsheaders',
     'drf_yasg',
     'django_filters',
 
     # Tu app
     'trafico',
-    'factores_externos',
+    'traffic_predictor',
 ]
 
 MIDDLEWARE = [
@@ -138,7 +141,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'api.wsgi.application'
 
-
+CORS_ALLOW_ALL_ORIGINS = True
+# O si usas lista blanca:
+CORS_ALLOWED_ORIGINS = ["http://localhost:3000"]
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
@@ -152,6 +157,16 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT')
     }
 }
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.AllowAny",
+    )
+}
+
 
 
 print(f'Current database engine is {DATABASES["default"]["NAME"]}')
@@ -199,3 +214,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
 MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN")
+
+
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=6),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
