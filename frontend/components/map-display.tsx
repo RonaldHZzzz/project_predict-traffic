@@ -52,8 +52,9 @@ export interface MapDisplayProps {
   segmentos?: Segmento[];
   selectedSegmentId?: number | null;
   onSelectSegment?: (id: number | null, pointId?: string | null) => void;
-  busStops?: BusStop[]; // ahora opcional
+  busStops?: BusStop[];
   recommendedRoute?: any | null;
+  isRecommending?: boolean;
 }
 
 export function MapDisplay({
@@ -63,6 +64,7 @@ export function MapDisplay({
   onSelectSegment,
   busStops = [],
   recommendedRoute = null,
+  isRecommending = false,
 }: MapDisplayProps) {
   // Centro dinámico
   const mapCenter = useMemo(() => {
@@ -123,6 +125,21 @@ export function MapDisplay({
           box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
           border: 2px solid white;
         }
+
+        .recommended-route {
+          stroke-dasharray: 1000;
+          stroke-dashoffset: 1000;
+          animation: route-animation 2s ease-out forwards;
+        }
+
+        @keyframes route-animation {
+          from {
+            stroke-dashoffset: 1000;
+          }
+          to {
+            stroke-dashoffset: 0;
+          }
+        }
       `}</style>
 
       <MapContainer
@@ -147,6 +164,8 @@ export function MapDisplay({
           onSelectSegment={onSelectSegment}
           congestionBySegmento={congestionBySegmento}
           getLineColor={getLineColor}
+          recommendedRoute={recommendedRoute}
+          isRecommending={isRecommending}
         />
       </MapContainer>
     </div>

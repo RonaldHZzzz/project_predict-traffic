@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 import type { TrafficPoint, Segmento, BusStop } from "@/lib/traffic-data";
@@ -13,6 +13,8 @@ interface MapContentProps {
   onSelectSegment: ((id: number | null, pointId?: string | null) => void) | undefined;
   congestionBySegmento: Map<number, number>;
   getLineColor: (congestion: number) => string;
+  recommendedRoute?: any | null;
+  isRecommending?: boolean;
 }
 
 const busStopIcon = L.divIcon({
@@ -31,32 +33,97 @@ export function MapContent({
   onSelectSegment,
   congestionBySegmento,
   getLineColor,
+  recommendedRoute = null,
+  isRecommending = false,
 }: MapContentProps) {
   const map = useMap();
+  const routeLayerRef = useRef<L.Polyline | null>(null);
+  const loadingOverlayRef = useRef<L.LayerGroup<any> | null>(null);
 
   useEffect(() => {
-    // Clear existing layers
+    // Limpiar capa de ruta anterior
+    if (routeLayerRef.current) {
+      map.removeLayer(routeLayerRef.current);
+      routeLayerRef.current = null;
+    }
+
+    // Log the received route data for debugging
+    if (recommendedRoute) {
+      console.log("Ruta recomendada recibida:", recommendedRoute);
+    }
+
+    // Dibujar nueva ruta recomendada
+    if (recommendedRoute && recommendedRoute.mejor_segmento) {
+      const bestSegment = segmentos.find(
+        (s) => s.segmento_id === recommendedRoute.mejor_segmento
+      );
+
+      if (bestSegment) {
+        const routePositions = bestSegment.geometry.map(
+          ([lng, lat]) => [lat, lng] as [number, number]
+        );
+
+        if (routePositions.length > 0) {
+          const routePolyline = L.polyline(routePositions, {
+            color: "#2563eb",
+            weight: 8,
+            opacity: 0.9,
+            className: "recommended-route",
+          }).addTo(map);
+
+          map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
+          routeLayerRef.current = routePolyline;
+        }
+      }
+    }
+  }, [recommendedRoute, segmentos, map]);
+
+  useEffect(() => {
+    // Clear existing layers for segments and markers
     map.eachLayer((layer) => {
-      if (layer instanceof L.Polyline || layer instanceof L.Marker) {
+      if ((layer instanceof L.Polyline || layer instanceof L.Marker) && layer !== routeLayerRef.current) {
         map.removeLayer(layer);
       }
     });
 
-    // Add new polylines
+    // Add new polylines for segments
     segmentos.forEach((segmento) => {
+      const isRecommended = recommendedRoute && segmento.segmento_id === recommendedRoute.mejor_segmento;
+      // If this segment is the one that is already highlighted, don't draw it again.
+      if (isRecommended) {
+        return;
+      }
+
       const positions = segmento.geometry.map(
         ([lng, lat]) => [lat, lng] as [number, number]
       );
-      const congestion =
-        congestionBySegmento.get(segmento.segmento_id) ?? 25;
-      const color = getLineColor(congestion);
+      
+      const isAnyRecommended = recommendedRoute && recommendedRoute.mejor_segmento;
+
+      // Default styling
+      let color = getLineColor(congestionBySegmento.get(segmento.segmento_id) ?? 25);
+      let weight = 5;
+      let opacity = 0.8;
+      let className = "";
 
       const isSelected = selectedSegmentId === segmento.segmento_id;
-      const isAnySelected = selectedSegmentId !== null;
 
-      const opacity = isAnySelected ? (isSelected ? 1 : 0.2) : 0.8;
-      const weight = isSelected ? 8 : 5;
-      const className = isSelected ? "segment-glow" : "";
+      if (isAnyRecommended) {
+        // Mode: Recommended route is active, so fade out all non-recommended segments.
+        color = '#808080'; // Faded gray
+        weight = 2;
+        opacity = 0.3;
+      } else if (selectedSegmentId !== null) {
+        // Mode: A segment is selected, but no recommendation is active
+        if (isSelected) {
+          weight = 8;
+          opacity = 1;
+          className = "segment-glow";
+        } else {
+          opacity = 0.3;
+          weight = 3;
+        }
+      }
 
       const polyline = L.polyline(positions, {
         color,
@@ -98,7 +165,7 @@ export function MapContent({
           }</p><p class="text-xs mt-1">Segmento: ${stop.segmento}</p></div>`
         );
     });
-  }, [points, segmentos, busStops, selectedSegmentId, congestionBySegmento, getLineColor, onSelectSegment, map]);
+  }, [points, segmentos, busStops, selectedSegmentId, congestionBySegmento, getLineColor, onSelectSegment, map, recommendedRoute]);
 
   return null;
 }

@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import type { MapDisplayProps } from "@/components/map-display";
 import { FlowStyles } from "@/components/layout/FlowStyles";
 import { VehicleTypeSelector } from "@/components/VehicleTypeSelector";
+import { useToast } from "@/hooks/use-toast";
 import { LeftSidebar } from "@/components/layout/LeftSidebar";
 import { RightSidebar } from "@/components/layout/RightSidebar";
 
@@ -58,6 +59,12 @@ export default function DashboardPage() {
   >([]);
   const [isPredictingData, setIsPredictingData] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [recommendedRoute, setRecommendedRoute] = useState<any | null>(null);
+  const [isRecommending, setIsRecommending] = useState(false);
+  const [recommendationError, setRecommendationError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const api = useCustomApi();
 
   const loadData = async () => {
     try {
@@ -195,15 +202,19 @@ export default function DashboardPage() {
     return Math.max(5, Math.min(100, Math.round(totalCongestion)));
   };
 
-
-  const [recommendedRoute, setRecommendedRoute] = useState<any | null>(null);
-  const api = useCustomApi();
-
   const handleRecommendRoute = async () => {
     if (!predictionDate) {
-      alert("Por favor, seleccione una fecha para la predicción.");
+      toast({
+        title: "Fecha no seleccionada",
+        description: "Por favor, seleccione una fecha para la predicción.",
+        variant: "destructive",
+      });
       return;
     }
+
+    setIsRecommending(true);
+    setRecommendedRoute(null);
+    setRecommendationError(null);
 
     const dateTime = new Date(predictionDate);
     dateTime.setHours(predictionHour, 0, 0, 0);
@@ -220,10 +231,21 @@ export default function DashboardPage() {
         fecha_hora: formattedDateTime,
       });
       setRecommendedRoute(response.data);
-      alert("Ruta recomendada cargada.");
+      toast({
+        title: "Ruta Recomendada",
+        description: "La mejor ruta ha sido cargada en el mapa.",
+      });
     } catch (error) {
       console.error("Error al obtener la ruta recomendada:", error);
-      alert("No se pudo obtener la ruta recomendada.");
+      const errorMessage = "No se pudo obtener la ruta recomendada. Intente de nuevo más tarde.";
+      setRecommendationError(errorMessage);
+      toast({
+        title: "Error de Recomendación",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecommending(false);
     }
   };
 
@@ -286,6 +308,7 @@ export default function DashboardPage() {
             onSelectSegment={handleSegmentSelect}
             busStops={busStops}
             recommendedRoute={recommendedRoute}
+            isRecommending={isRecommending}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -327,6 +350,7 @@ export default function DashboardPage() {
             tiempoRuta1={tiempoRuta1}
             tiempoRuta2={tiempoRuta2}
             scrollbarStyles={scrollbarStyles}
+            isRecommending={isRecommending}
           />
 
           <div className="hidden md:block md:flex-1" />
@@ -337,7 +361,7 @@ export default function DashboardPage() {
             handleSegmentSelect={handleSegmentSelect}
             isPredictionMode={isPredictionMode}
             isPredictingData={isPredictingData}
-            scrollbarStyles={scrollbarStyles}
+            scrollbarStyles={scrollbarStyles} 
           />
         </div>
       </div>

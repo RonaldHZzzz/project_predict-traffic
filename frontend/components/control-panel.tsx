@@ -133,7 +133,7 @@ export function ControlPanel({
           {/* Acción de Recomendar Ruta */}
           <Button
             disabled={!predictionDate}
-            className="w-full gap-2"
+            className="w-full gap-2 transition-colors hover:bg-blue-700"
             onClick={onRecommendRoute}
           >
             <Waypoints className="w-4 h-4" />
