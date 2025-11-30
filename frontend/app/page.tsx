@@ -122,81 +122,79 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (isPredictionMode && predictionDate) {
-      const fetchPredictions = async () => {
+      const fetchAndFilterPredictions = async () => {
         setIsPredictingData(true);
         try {
+          // 1. Fetch all predictions for the selected day
           const data = await getPredictionsForDate(predictionDate);
           setFullDayPredictions(data);
+
+          // 2. Filter predictions for the selected hour
+          const hourString = String(predictionHour).padStart(2, "0") + ":00";
+          const hourlyPredictions = data.filter(
+            (p: PredictionResult) => p.hora === hourString
+          );
+
+          // 3. Map to TrafficPoint
+          const segmentMap = new Map(segmentos.map((s) => [s.segmento_id, s]));
+          const newPredictionPoints: TrafficPoint[] = hourlyPredictions.map(
+            (pred) => {
+              const segment = segmentMap.get(pred.segmento_id);
+              const congestion = calculateAdvancedCongestion(pred);
+
+              return {
+                id: String(pred.segmento_id),
+                name: segment?.nombre ?? "Segmento desconocido",
+                lat: segment?.geometry?.[0]?.[1] ?? 0,
+                lng: segment?.geometry?.[0]?.[0] ?? 0,
+                congestion: congestion,
+                avgSpeed: pred.velocidad_kmh,
+                vehiclesPerHour: pred.carga_vehicular,
+                status: getTrafficStatus(congestion),
+              };
+            }
+          );
+          setPredictionPoints(newPredictionPoints);
+
         } catch (error) {
           console.error("Failed to fetch predictions:", error);
           setFullDayPredictions([]);
+          setPredictionPoints([]);
         } finally {
           setIsPredictingData(false);
         }
       };
 
-      fetchPredictions();
+      fetchAndFilterPredictions();
     } else {
       setFullDayPredictions([]);
-    }
-  }, [isPredictionMode, predictionDate]);
-
-  useEffect(() => {
-    if (!isPredictionMode) {
       setPredictionPoints([]);
-      return;
     }
+  }, [isPredictionMode, predictionDate, predictionHour, segmentos]);
 
-    const calculateAdvancedCongestion = (pred: PredictionResult): number => {
-      if (!pred) return 30;
-      const baseCongestion = pred.nivel_congestion * 8;
-      const maxSpeed = 60;
-      const speedRatio = Math.max(0, Math.min(pred.velocidad_kmh / maxSpeed, 1));
-      const speedFactor = (1 - speedRatio) * 25;
-      const estimatedCapacity = pred.longitud_km * 1400;
-      const loadRatio = Math.min(
-        pred.carga_vehicular / (estimatedCapacity || 1),
-        1
-      );
-      const loadFactor = loadRatio * 15;
-      const constructionPenalty = pred.construccion_vial > 0 ? 15 : 0;
-      const stopsPenalty = Math.min(pred.paradas_cercanas * 1, 5);
-      const totalCongestion =
-        baseCongestion +
-        speedFactor +
-        loadFactor +
-        constructionPenalty +
-        stopsPenalty;
-      return Math.max(5, Math.min(100, Math.round(totalCongestion)));
-    };
-
-    const hourString = String(predictionHour).padStart(2, "0") + ":00";
-    const hourlyPredictions = fullDayPredictions.filter(
-      (p) => p.hora === hourString
+  const calculateAdvancedCongestion = (pred: PredictionResult): number => {
+    if (!pred) return 30;
+    const baseCongestion = pred.nivel_congestion * 8;
+    const maxSpeed = 60;
+    const speedRatio = Math.max(0, Math.min(pred.velocidad_kmh / maxSpeed, 1));
+    const speedFactor = (1 - speedRatio) * 25;
+    const estimatedCapacity = pred.longitud_km * 1400;
+    const loadRatio = Math.min(
+      pred.carga_vehicular / (estimatedCapacity || 1),
+      1
     );
+    const loadFactor = loadRatio * 15;
+    const constructionPenalty = pred.construccion_vial > 0 ? 15 : 0;
+    const stopsPenalty = Math.min(pred.paradas_cercanas * 1, 5);
+    const totalCongestion =
+      baseCongestion +
+      speedFactor +
+      loadFactor +
+      constructionPenalty +
+      stopsPenalty;
+    return Math.max(5, Math.min(100, Math.round(totalCongestion)));
+  };
 
-    const segmentMap = new Map(segmentos.map((s) => [s.segmento_id, s]));
-
-    const newPredictionPoints: TrafficPoint[] = hourlyPredictions.map(
-      (pred) => {
-        const segment = segmentMap.get(pred.segmento_id);
-        const congestion = calculateAdvancedCongestion(pred);
-
-        return {
-          id: String(pred.segmento_id),
-          name: segment?.nombre ?? "Segmento desconocido",
-          lat: segment?.geometry?.[0]?.[1] ?? 0,
-          lng: segment?.geometry?.[0]?.[0] ?? 0,
-          congestion: congestion,
-          avgSpeed: pred.velocidad_kmh,
-          vehiclesPerHour: pred.carga_vehicular,
-          status: getTrafficStatus(congestion),
-        };
-      }
-    );
-
-    setPredictionPoints(newPredictionPoints);
-  }, [isPredictionMode, predictionHour, fullDayPredictions, segmentos]);
 
   const [recommendedRoute, setRecommendedRoute] = useState<any | null>(null);
   const api = useCustomApi();

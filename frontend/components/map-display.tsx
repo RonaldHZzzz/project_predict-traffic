@@ -146,6 +146,7 @@ export function MapDisplay({
       `}</style>
 
       <MapContainer
+        key={JSON.stringify(points)}
         center={mapCenter}
         zoom={13}
         style={{ height: "100%", width: "100%" }}

@@ -7,7 +7,13 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -103,16 +109,23 @@ export function ControlPanel({
           {/* Selector de Hora */}
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="w-3 h-3" /> Hora:{" "}
-              {String(predictionHour).padStart(2, "0")}:00
+              <Clock className="w-3 h-3" /> Hora
             </Label>
-            <Slider
-              value={[predictionHour]}
-              onValueChange={(value) => onPredictionHourChange(value[0])}
-              min={0}
-              max={23}
-              step={1}
-            />
+            <Select
+              value={String(predictionHour)}
+              onValueChange={(value) => onPredictionHourChange(Number(value))}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Seleccione una hora" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 24 }, (_, i) => (
+                  <SelectItem key={i} value={String(i)}>
+                    {String(i).padStart(2, "0")}:00
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <Separator className="bg-white/10" />
