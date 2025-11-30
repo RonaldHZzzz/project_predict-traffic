@@ -31,7 +31,7 @@ urlpatterns = [
     path("api/auth/login/", CustomTokenObtainPairView.as_view(), name="login"),
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/auth/register/", RegisterView.as_view(), name="register"),
-  
+    path("trafico/", include("trafico.urls")),  
     # 2. Endpoint para Matrix API (Mapbox)
     path('matrix/', matrix_api, name='matrix-api'),
 
