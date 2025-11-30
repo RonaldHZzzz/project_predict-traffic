@@ -1,10 +1,9 @@
-"use client";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import dynamic from "next/dynamic";
 import { useMemo, useEffect } from "react";
 import { useMap } from "react-leaflet";
-import type { TrafficPoint, Segmento,BusStop } from "@/lib/traffic-data";
+import type { TrafficPoint, Segmento, BusStop } from "@/lib/traffic-data";
 
 // Fix Leaflet marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -19,7 +18,7 @@ L.Icon.Default.mergeOptions({
 
 const busStopIcon = L.divIcon({
   html: `<div class="bus-stop-icon">🚌</div>`,
-  className: "",          
+  className: "",
   iconSize: [30, 30],
   iconAnchor: [15, 30],
   popupAnchor: [0, -28],
@@ -37,28 +36,29 @@ const Marker = dynamic(
   () => import("react-leaflet").then((mod) => mod.Marker),
   { ssr: false }
 );
-const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), {
-  ssr: false,
-});
+const Popup = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Popup),
+  { ssr: false }
+);
 const Polyline = dynamic(
   () => import("react-leaflet").then((mod) => mod.Polyline),
   { ssr: false }
 );
 
 // --- Componente para centrar el mapa en el tramo seleccionado ---
-function MapUpdater({ 
-  selectedSegment, 
-  defaultCenter 
-}: { 
-  selectedSegment: Segmento | undefined, 
-  defaultCenter: [number, number] 
+function MapUpdater({
+  selectedSegment,
+}: {
+  selectedSegment: Segmento | undefined;
 }) {
   const map = useMap();
 
   useEffect(() => {
     if (selectedSegment && selectedSegment.geometry.length > 0) {
-      const bounds = selectedSegment.geometry.map(([lng, lat]) => [lat, lng] as [number, number]);
-      // Hacemos zoom al tramo con padding para que no quede pegado a los bordes
+      const bounds = selectedSegment.geometry.map(
+        ([lng, lat]) => [lat, lng] as [number, number]
+      );
+      // Hacemos zoom al tramo con padding
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
     }
   }, [selectedSegment, map]);
@@ -70,18 +70,19 @@ export interface MapDisplayProps {
   points: TrafficPoint[];
   segmentos?: Segmento[];
   selectedSegmentId?: number | null;
-  onSelectSegment?: (id: number | null) => void;
-  busStops: BusStop[];
+  onSelectSegment?: (id: number | null, pointId?: string | null) => void;
+  busStops?: BusStop[]; // ahora opcional
+  recommendedRoute?: any | null;
 }
 
-export function MapDisplay({ 
-  points, 
-  segmentos = [], 
+export function MapDisplay({
+  points,
+  segmentos = [],
   selectedSegmentId = null,
   onSelectSegment,
-  busStops=[], 
+  busStops = [],
+  recommendedRoute = null,
 }: MapDisplayProps) {
-
   // Centro dinámico
   const mapCenter = useMemo(() => {
     if (!points || points.length === 0) {
@@ -92,9 +93,10 @@ export function MapDisplay({
     return [avgLat, avgLng] as [number, number];
   }, [points]);
 
-  const selectedSegmentData = useMemo(() => 
-    segmentos.find(s => s.segmento_id === selectedSegmentId),
-  [segmentos, selectedSegmentId]);
+  const selectedSegmentData = useMemo(
+    () => segmentos.find((s) => s.segmento_id === selectedSegmentId),
+    [segmentos, selectedSegmentId]
+  );
 
   const congestionBySegmento = useMemo(() => {
     const map = new Map<number, number>();
@@ -103,16 +105,6 @@ export function MapDisplay({
     });
     return map;
   }, [points]);
-
-  const visibleBusStops = useMemo(() => {
-  // Si no hay segmento seleccionado, no mostramos ninguna parada
-  if (!selectedSegmentId) return [];
-
-  // Solo paradas del segmento seleccionado
-  return (busStops ?? []).filter(
-    (stop) => stop.segmento === selectedSegmentId
-  );
-}, [busStops, selectedSegmentId]);
 
 
   const getLineColor = (congestion: number) => {
@@ -124,36 +116,33 @@ export function MapDisplay({
 
   return (
     <div className="h-full rounded-lg overflow-hidden border border-border relative">
-      {/* CAMBIO: CSS ajustado para mapa claro.
-         En lugar de brillo blanco, usamos una sombra doble del mismo color (currentColor)
-         para crear un efecto de "resplandor" intenso que se ve bien sobre blanco.
-      */}
       <style jsx global>{`
         .segment-glow {
-          /* Sombra suave + Sombra fuerte del mismo color */
-          filter: drop-shadow(0 0 5px currentColor) drop-shadow(0 0 10px currentColor);
+          filter: drop-shadow(0 0 5px currentColor)
+            drop-shadow(0 0 10px currentColor);
           stroke-dasharray: 12, 12;
           animation: dash 60s linear infinite;
         }
-        
+
         @keyframes dash {
           to {
             stroke-dashoffset: -1000;
           }
         }
-            .bus-stop-icon {
-    width: 24px;
-    height: 24px;
-    border-radius: 9999px;
-    background: rgba(34, 197, 94, 0.95); /* verde tipo "success" */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 14px;
-    box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
-    border: 2px solid white;
-  }
+
+        .bus-stop-icon {
+          width: 24px;
+          height: 24px;
+          border-radius: 9999px;
+          background: rgba(34, 197, 94, 0.95);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 14px;
+          box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+          border: 2px solid white;
+        }
       `}</style>
 
       <MapContainer
@@ -162,35 +151,36 @@ export function MapDisplay({
         style={{ height: "100%", width: "100%" }}
         className="z-0"
       >
-        <MapUpdater selectedSegment={selectedSegmentData} defaultCenter={mapCenter} />
+        <MapUpdater selectedSegment={selectedSegmentData} />
 
-        {/* CAMBIO: Volvemos al TileLayer rápido de OpenStreetMap */}
+        {/* TileLayer rápido de OpenStreetMap */}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap contributors'
+          attribution="&copy; OpenStreetMap contributors"
         />
 
         {segmentos.map((segmento) => {
           const positions = segmento.geometry.map(
             ([lng, lat]) => [lat, lng] as [number, number]
           );
-          const congestion = congestionBySegmento.get(segmento.segmento_id) ?? 25;
+          const congestion =
+            congestionBySegmento.get(segmento.segmento_id) ?? 25;
           const color = getLineColor(congestion);
 
           const isSelected = selectedSegmentId === segmento.segmento_id;
           const isAnySelected = selectedSegmentId !== null;
 
-          // Lógica de visibilidad
-          const opacity = isAnySelected ? (isSelected ? 1 : 0.2) : 0.8; 
-          // Subí la opacidad de los no seleccionados a 0.2 para que no desaparezcan por completo en fondo blanco
-          
+          const opacity = isAnySelected ? (isSelected ? 1 : 0.2) : 0.8;
           const weight = isSelected ? 8 : 5;
           const className = isSelected ? "segment-glow" : "";
 
           const eventHandlers = {
             click: () => {
               if (onSelectSegment) {
-                onSelectSegment(isSelected ? null : segmento.segmento_id);
+                onSelectSegment(
+                  isSelected ? null : segmento.segmento_id,
+                  null
+                );
               }
             },
           };
@@ -214,31 +204,30 @@ export function MapDisplay({
             <Popup>
               <div className="text-sm">
                 <p className="font-semibold">{point.name}</p>
-                <p className="text-xs mt-1">Congestión: {Math.round(point.congestion)}%</p>
+                <p className="text-xs mt-1">
+                  Congestión: {Math.round(point.congestion)}%
+                </p>
               </div>
             </Popup>
           </Marker>
         ))}
 
-        {visibleBusStops.map((stop) => (
-      <Marker
-        key={`stop-${stop.id}`}
-        position={[stop.lat, stop.lon]}
-        icon={busStopIcon}
-      >
-        <Popup>
-          <div className="text-sm">
-            <p className="font-semibold">
-              {stop.nombre || "Parada de bus"}
-            </p>
-            <p className="text-xs mt-1">Segmento: {stop.segmento}</p>
-          </div>
-        </Popup>
-      </Marker>
-    ))}
-
-            
-
+        {(busStops ?? []).map((stop) => (
+          <Marker
+            key={`stop-${stop.id}`}
+            position={[stop.lat, stop.lon]}
+            icon={busStopIcon}
+          >
+            <Popup>
+              <div className="text-sm">
+                <p className="font-semibold">
+                  {stop.nombre || "Parada de bus"}
+                </p>
+                <p className="text-xs mt-1">Segmento: {stop.segmento}</p>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
     </div>
   );

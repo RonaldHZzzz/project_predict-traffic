@@ -1,137 +1,133 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Calendar, BrainCircuit } from "lucide-react"; // Importamos icono para predecir
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import useCustomApi from "@/hooks/useCustomApi";
-
-const api = useCustomApi();
+import {
+  BrainCircuit,
+  Calendar as CalendarIcon,
+  Clock,
+  Waypoints,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 interface ControlPanelProps {
-  onDateChange: (date: string) => void;
-  onPredict: (segmentoId: number) => void;
-  isPredicting: boolean;
-  selectedDate: string;
-  hasSelectedSegment: boolean; // Para saber si habilitar el botón
-  onPredictingChange?: (isPredicting: boolean) => void;
+  isPredictionMode: boolean;
+  onPredictionModeChange: (isMode: boolean) => void;
+  predictionDate: Date | undefined;
+  onPredictionDateChange: (date: Date | undefined) => void;
+  predictionHour: number;
+  onPredictionHourChange: (hour: number) => void;
+  onRecommendRoute: () => void;
 }
 
 export function ControlPanel({
-  onDateChange,
-  onPredict,
-  isPredicting,
-  selectedDate,
-  hasSelectedSegment,
-  onPredictingChange,
+  isPredictionMode,
+  onPredictionModeChange,
+  predictionDate,
+  onPredictionDateChange,
+  predictionHour,
+  onPredictionHourChange,
+  onRecommendRoute,
 }: ControlPanelProps) {
-  const [dateInput, setDateInput] = useState(selectedDate);
-  const [error, setError] = useState<string | null>(null);
-
-  // Sincronizar dateInput cuando selectedDate cambia desde el padre
-  useEffect(() => {
-    setDateInput(selectedDate);
-  }, [selectedDate]);
-
-  const predict = async () => {
-    if (!selectedDate) return;
-
-    try {
-      setError(null);
-
-      // Notificar que estamos prediciendo
-      onPredictingChange?.(true);
-
-      const response = await api.post("api/recommend-route/", {
-        fecha_hora: selectedDate,
-      });
-      console.log("Prediction result:", response.data);
-
-      const segmentoRecommended = response.data.mejor_segmento;
-      if (!segmentoRecommended) {
-        setError("No se pudo obtener una recomendación de segmento.");
-        return;
-      }
-      onPredict(segmentoRecommended); // Call the parent callback
-      return;
-    } catch (error) {
-      console.error("Error during prediction:", error);
-      setError("Error al realizar la predicción. Intenta de nuevo.");
-    } finally {
-      // Notificar que terminamos de predecir
-      onPredictingChange?.(false);
-    }
-  };
-
   return (
-    <div className="h-full flex flex-col gap-6">
-      {/* Encabezado */}
+    <div className="h-full flex flex-col gap-4">
       <div>
         <h3 className="text-lg font-semibold tracking-tight">
-          Panel de Predicción
+          Panel de Control
         </h3>
         <p className="text-sm text-muted-foreground">
-          Selecciona una fecha para ver el futuro
+          {isPredictionMode
+            ? "Configure la fecha y hora de la predicción."
+            : "Visualización de datos en tiempo real."}
         </p>
       </div>
 
       <Separator className="bg-white/10" />
 
-      {/* Sección de Configuración */}
-      <div className="space-y-4">
-        {/* Selector de Fecha */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="date-filter"
-            className="text-xs text-muted-foreground flex items-center gap-1"
+      {/* Botón principal para cambiar de modo */}
+      <Button
+        onClick={() => onPredictionModeChange(!isPredictionMode)}
+        variant="outline"
+        className="w-full"
+      >
+        {isPredictionMode
+          ? "Ver Tráfico en Tiempo Real"
+          : "Ver Predicción de Tráfico"}
+      </Button>
+
+      {/* Controles de Predicción */}
+      {isPredictionMode && (
+        <div className="space-y-6 animate-in fade-in-50">
+          {/* Selector de Fecha */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+              <CalendarIcon className="w-3 h-3" /> Fecha de Predicción
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !predictionDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {predictionDate ? (
+                    format(predictionDate, "PPP")
+                  ) : (
+                    <span>Seleccione una fecha</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={predictionDate}
+                  onSelect={onPredictionDateChange}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Selector de Hora */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="w-3 h-3" /> Hora:{" "}
+              {String(predictionHour).padStart(2, "0")}:00
+            </Label>
+            <Slider
+              value={[predictionHour]}
+              onValueChange={(value) => onPredictionHourChange(value[0])}
+              min={0}
+              max={23}
+              step={1}
+            />
+          </div>
+
+          <Separator className="bg-white/10" />
+
+          {/* Acción de Recomendar Ruta */}
+          <Button
+            disabled={!predictionDate}
+            className="w-full gap-2"
+            onClick={onRecommendRoute}
           >
-            <Calendar className="w-3 h-3" /> Fecha de Predicción
-          </Label>
-          <input
-            type="date"
-            id="date-filter"
-            value={dateInput}
-            onChange={(e) => {
-              setDateInput(e.target.value);
-              onDateChange(e.target.value);
-            }}
-            className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary/50 transition-colors"
-          />
+            <Waypoints className="w-4 h-4" />
+            Recomendar Mejor Ruta
+          </Button>
         </div>
-{/* 
-        {!hasSelectedSegment && (
-          <div className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-[10px] text-yellow-200">
-            ⚠ Selecciona un tramo en el mapa para predecir.
-          </div>
-        )} */}
-
-        {!selectedDate && (
-          <div className="p-2 bg-red-500/10 border border-red-500/20 rounded text-[10px] text-red-200">
-            ⚠ Selecciona una fecha para realizar la predicción.
-          </div>
-        )}
-
-        {error && (
-          <div className="p-2 bg-red-500/10 border border-red-500/20 rounded text-[10px] text-red-200">
-            {error}
-          </div>
-        )}
-      </div>
-
-      {/* Acciones */}
-      <div className="mt-auto pt-4 flex flex-col gap-3">
-        <Button
-          className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={predict}
-          disabled={isPredicting || !selectedDate}
-        >
-          <BrainCircuit
-            className={`w-4 h-4 ${isPredicting ? "animate-pulse" : ""}`}
-          />
-          {isPredicting ? "Calculando..." : "Predecir Tráfico Futuro"}
-        </Button>
-      </div>
+      )}
     </div>
   );
 }

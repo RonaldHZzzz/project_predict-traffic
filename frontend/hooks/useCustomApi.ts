@@ -1,9 +1,11 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { DEFAULT_CIPHERS } from 'tls';
+
 
 // Create axios instance with base configuration
 const createApiInstance = (): AxiosInstance => {
     const instance = axios.create({
-        baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api',
+        baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000',
         timeout: 10000,
         headers: {
             'Content-Type': 'application/json',
@@ -15,6 +17,7 @@ const createApiInstance = (): AxiosInstance => {
         (config: InternalAxiosRequestConfig) => {
             // Add auth token if available
             const token = process.env.NEXT_PUBLIC_API_TOKEN;
+            console.log("DEBUG: API Token found:", !!token); // Log para ver si el token existe
             if (token && config.headers) {
                 config.headers.Authorization = `Bearer ${token}`;
             }
@@ -55,4 +58,4 @@ export const useCustomApi = () => {
     return createApiInstance();
 };
 
-export default useCustomApi;
+export default  useCustomApi;

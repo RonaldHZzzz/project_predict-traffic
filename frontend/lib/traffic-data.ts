@@ -1,3 +1,5 @@
+import useCustomApi from "@/hooks/useCustomApi";
+
 // ---------------------------
 // Tipos de datos
 // ---------------------------
@@ -30,12 +32,17 @@ export interface Segmento {
 // Status helpers
 // ---------------------------
 export function getTrafficStatus(
-  congestion: number
+  congestion: number,
 ): "fluido" | "moderado" | "congestionado" | "colapsado" {
-  if (congestion < 30) return "fluido";
-  if (congestion < 50) return "moderado";
-  if (congestion < 75) return "congestionado";
-  return "colapsado";
+  // El backend devuelve un nivel de congestión de 1 a 5.
+  // Se convierte la escala de 1-5 a un porcentaje para unificar la lógica.
+  const congestionPercent =
+    congestion > 0 && congestion <= 5 ? congestion * 20 : congestion;
+
+  if (congestionPercent < 30) return "fluido"; // Nivel < 1.5
+  if (congestionPercent < 50) return "moderado"; // Nivel < 2.5
+  if (congestionPercent < 75) return "congestionado"; // Nivel < 3.75
+  return "colapsado"; // Nivel >= 3.75
 }
 
 export function getStatusColor(status: string): string {
@@ -217,7 +224,7 @@ export function generateDailyComparison(): DailyComparison[] {
     avgCongestion: 45 + Math.random() * 25,
   }));
 }
-// 👇 Tipo para las paradas de bus
+//  Tipo para las paradas de bus
 export interface BusStop {
   id: number;
   segmento: number;
@@ -243,5 +250,72 @@ export async function getBusStopsBySegment(
 
   return res.json();
 }
+
+// ---------------------------
+// Obtener PREDICCIONES desde Django
+// ---------------------------
+
+export interface PredictionResult {
+  segmento_id: number;
+  fecha: string;
+  hora: string;
+  nivel_congestion: number;
+  velocidad_kmh: number;
+  longitud_km: number;
+  tiempo_estimado_min: number;
+  carga_vehicular: number;
+  construccion_vial: number;
+  paradas_cercanas: number;
+}
+
+
+
+// ... (existing code) ...
+
+// Función para obtener las predicciones de todos los segmentos para una fecha dada
+export async function getPredictionsForDate(
+  date: Date
+): Promise<PredictionResult[]> {
+  const segments = await getSegmentos();
+  if (!segments || segments.length === 0) {
+    return [];
+  }
+
+  const api = useCustomApi();
+  const dateString = date.toISOString().split("T")[0]; // Formato YYYY-MM-DD
+
+  const predictionPromises = segments.map((segment) => {
+    return api
+      .post("/api/predict-traffic/", {
+        segmento_id: segment.segmento_id,
+        fecha: dateString,
+      })
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          return res.data.map((d: any) => ({
+            ...d,
+            segmento_id: segment.segmento_id,
+          }));
+        }
+        return [];
+      })
+      .catch((err) => {
+        console.error(
+          `Error fetching prediction for segment ${segment.segmento_id}`,
+          err.message
+        );
+        return [];
+      });
+  });
+
+  try {
+    const resultsBySegment = await Promise.all(predictionPromises);
+    return resultsBySegment.flat();
+  } catch (error) {
+    console.error("One or more prediction fetches failed", error);
+    return [];
+  }
+}
+
 
 

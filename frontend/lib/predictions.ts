@@ -29,18 +29,25 @@ export interface Segmento {
 }
 
 // --- Helpers de Estado ---
-export function getTrafficStatus(congestion: number): "fluido" | "moderado" | "congestionado" | "colapsado" {
-  if (congestion < 30) return "fluido";
-  if (congestion < 50) return "moderado";
-  if (congestion < 75) return "congestionado";
-  return "colapsado";
+export function getTrafficStatus(
+  congestion: number,
+): "fluido" | "moderado" | "congestionado" | "colapsado" {
+  // El backend devuelve un nivel de congestión de 1 a 5.
+  // Se convierte la escala de 1-5 a un porcentaje para unificar la lógica.
+  const congestionPercent =
+    congestion > 0 && congestion <= 5 ? congestion * 20 : congestion;
+
+  if (congestionPercent < 30) return "fluido"; // Nivel < 1.5
+  if (congestionPercent < 50) return "moderado"; // Nivel < 2.5
+  if (congestionPercent < 75) return "congestionado"; // Nivel < 3.75
+  return "colapsado"; // Nivel >= 3.75
 }
 
 export function getStatusColor(status: string): string {
   switch (status) {
     case "fluido": return "#10b981";
     case "moderado": return "#f59e0b";
-    case "congestionado": return "#ff7242";
+    case "congestionado": return "#5cc53cff";
     case "colapsado": return "#ef4444";
     default: return "#6b7280";
   }
