@@ -217,3 +217,31 @@ export function generateDailyComparison(): DailyComparison[] {
     avgCongestion: 45 + Math.random() * 25,
   }));
 }
+// 👇 Tipo para las paradas de bus
+export interface BusStop {
+  id: number;
+  segmento: number;
+  osm_id: string;
+  nombre: string | null;
+  lat: number;
+  lon: number;
+}
+
+export async function getBusStopsBySegment(
+  segmentoId: number
+): Promise<BusStop[]> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+
+  const res = await fetch(
+    `${baseUrl}/trafico/segmentos/${segmentoId}/paradas/`,
+    { cache: "no-store" }
+  );
+
+  if (!res.ok) {
+    throw new Error("Error cargando paradas del segmento");
+  }
+
+  return res.json();
+}
+
+

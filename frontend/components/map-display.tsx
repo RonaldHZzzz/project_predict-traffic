@@ -4,7 +4,7 @@ import L from "leaflet";
 import dynamic from "next/dynamic";
 import { useMemo, useEffect } from "react";
 import { useMap } from "react-leaflet";
-import type { TrafficPoint, Segmento } from "@/lib/traffic-data";
+import type { TrafficPoint, Segmento,BusStop } from "@/lib/traffic-data";
 
 // Fix Leaflet marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -15,6 +15,14 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
   shadowUrl:
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+});
+
+const busStopIcon = L.divIcon({
+  html: `<div class="bus-stop-icon">🚌</div>`,
+  className: "",          
+  iconSize: [30, 30],
+  iconAnchor: [15, 30],
+  popupAnchor: [0, -28],
 });
 
 const MapContainer = dynamic(
@@ -63,13 +71,15 @@ export interface MapDisplayProps {
   segmentos?: Segmento[];
   selectedSegmentId?: number | null;
   onSelectSegment?: (id: number | null) => void;
+  busStops: BusStop[];
 }
 
 export function MapDisplay({ 
   points, 
   segmentos = [], 
   selectedSegmentId = null,
-  onSelectSegment 
+  onSelectSegment,
+  busStops=[], 
 }: MapDisplayProps) {
 
   // Centro dinámico
@@ -93,6 +103,17 @@ export function MapDisplay({
     });
     return map;
   }, [points]);
+
+  const visibleBusStops = useMemo(() => {
+  // Si no hay segmento seleccionado, no mostramos ninguna parada
+  if (!selectedSegmentId) return [];
+
+  // Solo paradas del segmento seleccionado
+  return (busStops ?? []).filter(
+    (stop) => stop.segmento === selectedSegmentId
+  );
+}, [busStops, selectedSegmentId]);
+
 
   const getLineColor = (congestion: number) => {
     if (congestion < 30) return "#10b981"; // verde
@@ -120,6 +141,19 @@ export function MapDisplay({
             stroke-dashoffset: -1000;
           }
         }
+            .bus-stop-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    background: rgba(34, 197, 94, 0.95); /* verde tipo "success" */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+    border: 2px solid white;
+  }
       `}</style>
 
       <MapContainer
@@ -185,6 +219,26 @@ export function MapDisplay({
             </Popup>
           </Marker>
         ))}
+
+        {visibleBusStops.map((stop) => (
+      <Marker
+        key={`stop-${stop.id}`}
+        position={[stop.lat, stop.lon]}
+        icon={busStopIcon}
+      >
+        <Popup>
+          <div className="text-sm">
+            <p className="font-semibold">
+              {stop.nombre || "Parada de bus"}
+            </p>
+            <p className="text-xs mt-1">Segmento: {stop.segmento}</p>
+          </div>
+        </Popup>
+      </Marker>
+    ))}
+
+            
+
       </MapContainer>
     </div>
   );

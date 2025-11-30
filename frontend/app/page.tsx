@@ -16,18 +16,22 @@ import {
   getTrafficPoints,
   getCurrentMetrics,
   getSegmentos,
+  getBusStopsBySegment,
+  type TrafficPoint,
+  type TrafficMetrics,
+  type Segmento,
+  type BusStop,
 } from "@/lib/traffic-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMatrixData } from "@/lib/matrix";
 import { cn } from "@/lib/utils";
 import { CarFront, Gauge, Navigation } from "lucide-react";
 
-// Importamos los tipos
+// Importamos los tipos del mapa
 import type { MapDisplayProps } from "@/components/map-display";
 
 const MapDisplay = dynamic<MapDisplayProps>(
-  () =>
-    import("@/components/map-display").then((mod) => mod.MapDisplay),
+  () => import("@/components/map-display").then((mod) => mod.MapDisplay),
   {
     ssr: false,
     loading: () => <Skeleton className="w-full h-full bg-slate-900/50" />,
@@ -91,11 +95,16 @@ export default function DashboardPage() {
   const [avgCongestion, setAvgCongestion] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Paradas de bus visibles (del segmento seleccionado)
+  const [busStops, setBusStops] = useState<BusStop[]>([]);
+
   // Estado para la selección interactiva de Puntos
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
-  
-  // --- NUEVO: Estado para la selección interactiva de Segmentos (Tramos) ---
-  const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(null);
+
+  // Estado para la selección de Segmentos (Tramos)
+  const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(
+    null
+  );
 
   const [matrixData, setMatrixData] = useState<any | null>(null);
   const [matrixError, setMatrixError] = useState<string | null>(null);
@@ -103,15 +112,18 @@ export default function DashboardPage() {
   // Ref para manejar el intervalo
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const loadData = async (segmentId?: number | null) => {
+  // Carga de datos generales (segmentos, puntos, métricas, matrix)
+  const loadData = async () => {
     try {
       setIsLoading(true);
       setMatrixError(null);
 
-      const points = await getTrafficPoints();
-      setTrafficPoints(points);
+      const [points, segs] = await Promise.all([
+        getTrafficPoints(),
+        getSegmentos(),
+      ]);
 
-      const segs = await getSegmentos();
+      setTrafficPoints(points);
       setSegmentos(segs);
 
       const currentMetrics = getCurrentMetrics(points);
@@ -152,35 +164,49 @@ export default function DashboardPage() {
   // Función para establecer el intervalo
   const setDataInterval = () => {
     clearDataInterval();
-    intervalRef.current = setInterval(() => loadData(), 30000);
+    intervalRef.current = setInterval(() => {
+      loadData();
+    }, 30000);
   };
 
   useEffect(() => {
     loadData();
     setDataInterval();
-    
+
     return () => clearDataInterval();
   }, []);
 
-  // --- NUEVO: Manejador para la selección de segmentos ---
+  // Manejador para la selección de segmentos (desde la tarjeta o el mapa)
   const handleSegmentSelect = (id: number | null) => {
     setSelectedSegmentId(id);
-    
+
     if (id) {
-      // Si se selecciona un segmento, cargar datos específicos y detener el intervalo
+      // Al seleccionar un segmento:
       setSelectedPointId(null);
-      clearDataInterval();
-      loadData(id);
+      clearDataInterval(); // si quieres pausar actualización automática
+      loadData(); // recarga métricas/puntos si lo ves necesario
+
+      // Cargar SOLO las paradas cercanas a ese segmento
+      setBusStops([]); // limpiamos mientras carga
+      getBusStopsBySegment(id)
+        .then((stops) => {
+          setBusStops(stops);
+        })
+        .catch((err) => {
+          console.error("Error cargando paradas del segmento:", err);
+          setBusStops([]);
+        });
     } else {
-      // Si se deselecciona, volver a la carga normal con intervalo
+      // Al deseleccionar segmento:
+      setBusStops([]);
       loadData();
       setDataInterval();
     }
   };
 
   // Calculamos tiempos de ruta
-  let tiempoRuta1 = null;
-  let tiempoRuta2 = null;
+  let tiempoRuta1: number | null = null;
+  let tiempoRuta2: number | null = null;
 
   if (matrixData?.durations && matrixData.durations.length > 0) {
     const row0 = matrixData.durations[0];
@@ -236,22 +262,22 @@ export default function DashboardPage() {
       {/* CAPA 1: EL MAPA DE FONDO */}
       <div className="absolute inset-0 z-0">
         {!isLoading && trafficPoints.length > 0 ? (
-          <MapDisplay 
-            points={trafficPoints} 
-            segmentos={segmentos} 
-            // --- NUEVO: Pasamos las props de control de estado al mapa ---
+          <MapDisplay
+            points={trafficPoints}
+            segmentos={segmentos}
+            busStops={busStops}
             selectedSegmentId={selectedSegmentId}
             onSelectSegment={handleSegmentSelect}
           />
         ) : (
-            <div className="w-full h-full flex items-center justify-center">
+          <div className="w-full h-full flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
               <span className="text-white animate-pulse">
-              Cargando Mapa...
+                Cargando Mapa...
               </span>
             </div>
-            </div>
+          </div>
         )}
       </div>
 
@@ -274,12 +300,10 @@ export default function DashboardPage() {
               scrollbarStyles
             )}
           >
-              {/*PANEL DE CONTROL ARRIBA*/}
-              <GlassCard>
-                <ControlPanel />
-              </GlassCard>
-              {/* Lista de Segmentos con Selección */}
-
+            {/* PANEL DE CONTROL ARRIBA */}
+            <GlassCard>
+              <ControlPanel />
+            </GlassCard>
 
             {/* Panel de Métricas Principales */}
             {metrics && (
@@ -331,36 +355,33 @@ export default function DashboardPage() {
                 </div>
               )}
             </GlassCard>
-
-          
           </div>
 
           <div className="hidden md:block md:flex-1" />
 
-          {/* COLUMNA DERECHA: PUNTOS DE MONITOREO MEJORADOS E INTERACTIVOS */}
+          {/* COLUMNA DERECHA: PUNTOS DE MONITOREO */}
           <div className="w-full md:w-1/3 lg:w-1/4 flex flex-col justify-end pointer-events-none gap-2">
             {/* Título de la sección flotante */}
-        <div className="bg-background/40 backdrop-blur-md border border-white/10 rounded-lg p-2 px-3 flex items-center justify-between pointer-events-auto gap-3">
-  <h3 className="text-sm font-bold text-foreground/90">
-    Puntos de Monitoreo
-  </h3>
+            <div className="bg-background/40 backdrop-blur-md border border-white/10 rounded-lg p-2 px-3 flex items-center justify-between pointer-events-auto gap-3">
+              <h3 className="text-sm font-bold text-foreground/90">
+                Puntos de Monitoreo
+              </h3>
 
-  <div className="flex items-center">
-    <Select value={vehicleType} onValueChange={setVehicleType}>
-      <SelectTrigger className="w-[110px] bg-white/10 border-white/20 text-xs h-7">
-        <SelectValue placeholder="Tipo" />
-      </SelectTrigger>
+              <div className="flex items-center">
+                <Select value={vehicleType} onValueChange={setVehicleType}>
+                  <SelectTrigger className="w-[110px] bg-white/10 border-white/20 text-xs h-7">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
 
-      <SelectContent>
-        <SelectItem value="auto">Automóvil</SelectItem>
-        <SelectItem value="moto">Moto</SelectItem>
-        <SelectItem value="bus">Bus</SelectItem>
-        <SelectItem value="bus">NO SE</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
-</div>
-
+                  <SelectContent>
+                    <SelectItem value="auto">Automóvil</SelectItem>
+                    <SelectItem value="moto">Moto</SelectItem>
+                    <SelectItem value="bus">Bus</SelectItem>
+                    <SelectItem value="bus">NO SE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
             <div
               className={cn(
@@ -374,28 +395,27 @@ export default function DashboardPage() {
                 const gradientColor = getGradientColor(point.congestion);
 
                 return (
-          <GlassCard
-  key={point.id}
-  onClick={() => {
-    if (isSelected) {
-      // Si ya estaba seleccionado, lo deseleccionamos todo
-      setSelectedPointId(null);
-      handleSegmentSelect(null);          // ⬅ limpia el segmento
-    } else {
-      // Al seleccionar un punto, seleccionamos también su tramo en el mapa
-      const segId = Number(point.id);     // id de TrafficPoint = segmento_id
-      setSelectedPointId(point.id);
-      handleSegmentSelect(segId);         // ⬅ esto actualiza selectedSegmentId y recarga datos
-    }
-  }}
-  className={cn(
-    "p-4 rounded-xl cursor-pointer hover:bg-white/5 group relative overflow-hidden",
-    isSelected
-      ? cn("border-opacity-100 scale-[1.02]", borderStyle)
-      : "border-white/10 hover:border-white/20"
-  )}
->
-
+                  <GlassCard
+                    key={point.id}
+                    onClick={() => {
+                      if (isSelected) {
+                        // Si ya estaba seleccionado, lo deseleccionamos todo
+                        setSelectedPointId(null);
+                        handleSegmentSelect(null); // limpia el segmento y paradas
+                      } else {
+                        // Al seleccionar un punto, seleccionamos también su tramo en el mapa
+                        const segId = Number(point.id); // id de TrafficPoint = segmento_id
+                        setSelectedPointId(point.id);
+                        handleSegmentSelect(segId); // actualiza selectedSegmentId y carga paradas
+                      }
+                    }}
+                    className={cn(
+                      "p-4 rounded-xl cursor-pointer hover:bg-white/5 group relative overflow-hidden",
+                      isSelected
+                        ? cn("border-opacity-100 scale-[1.02]", borderStyle)
+                        : "border-white/10 hover:border-white/20"
+                    )}
+                  >
                     {/* Fondo brillante al seleccionar */}
                     {isSelected && (
                       <div
@@ -414,10 +434,9 @@ export default function DashboardPage() {
                           <span
                             className={cn(
                               "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                              getCongestionTextColor(point.congestion).replace(
-                                "text",
-                                "bg"
-                              )
+                              getCongestionTextColor(
+                                point.congestion
+                              ).replace("text", "bg")
                             )}
                           ></span>
                           <span
@@ -495,17 +514,16 @@ export default function DashboardPage() {
                           {Math.round(point.congestion)}%
                         </span>
                       </div>
-                      {/* NUEVO: ESTADO TEXTUAL */}
+                      {/* Estado textual */}
                       <div className="text-xs font-semibold mt-1">
-                        Estado: {
-                          point.congestion < 30
-                            ? "Fluido"
-                            : point.congestion < 50
-                            ? "Moderado"
-                            : point.congestion < 75
-                            ? "Congestionado"
-                            : "Crítico"
-                        }
+                        Estado:{" "}
+                        {point.congestion < 30
+                          ? "Fluido"
+                          : point.congestion < 50
+                          ? "Moderado"
+                          : point.congestion < 75
+                          ? "Congestionado"
+                          : "Crítico"}
                       </div>
 
                       <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
@@ -514,7 +532,9 @@ export default function DashboardPage() {
                             "h-full rounded-full transition-all duration-500 bg-gradient-to-r animate-flow",
                             gradientColor
                           )}
-                          style={{ width: `${Math.round(point.congestion)}%` }}
+                          style={{
+                            width: `${Math.round(point.congestion)}%`,
+                          }}
                         />
                       </div>
                     </div>
