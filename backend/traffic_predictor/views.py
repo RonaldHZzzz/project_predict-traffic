@@ -174,6 +174,10 @@ def recommend_route_v1(request):
                 type=openapi.TYPE_STRING,
                 description="Fecha y hora (YYYY-MM-DD HH:MM:SS)"
             ),
+            "construction_segment_id": openapi.Schema(
+                type=openapi.TYPE_INTEGER,
+                description="ID del segmento con construcción (opcional)"
+            ),
         }
     ),
     responses={200: "Ruta recomendada generada correctamente"}
@@ -183,6 +187,7 @@ def recommend_route_v1(request):
 def recommend_route_v2(request):
     vehicle_type = request.data.get("vehicle_type")
     fecha_hora = request.data.get("fecha_hora")
+    construction_segment_id = request.data.get("construction_segment_id")
 
     if not vehicle_type or not fecha_hora:
         return Response(
@@ -234,6 +239,9 @@ def recommend_route_v2(request):
 
         if vehicle_type == "moto" and seg_id == 10:
             score *= 0.6
+        
+        if construction_segment_id and seg_id == construction_segment_id:
+            score *= 1.5
 
         results.append({
             "segmento_id": seg_id,
