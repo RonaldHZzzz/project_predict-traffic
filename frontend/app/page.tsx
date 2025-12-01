@@ -63,6 +63,8 @@ export default function DashboardPage() {
   const [recommendedRoute, setRecommendedRoute] = useState<any | null>(null);
   const [isRecommending, setIsRecommending] = useState(false);
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
+  const [isConstructionMode, setIsConstructionMode] = useState(false);
+  const [constructionSegmentId, setConstructionSegmentId] = useState<number | null>(null);
   const { toast } = useToast();
   const api = useCustomApi();
 
@@ -203,88 +205,96 @@ export default function DashboardPage() {
   };
 
 const handleRecommendRoute = async () => {
-  if (!predictionDate) {
-    toast({
-      title: "Fecha no seleccionada",
-      description: "Por favor, seleccione una fecha para la predicción.",
-      variant: "destructive",
-    });
-    return;
-  }
+    if (!predictionDate) {
+      toast({
+        title: "Fecha no seleccionada",
+        description: "Por favor, seleccione una fecha para la predicción.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  setIsRecommending(true);
-  setRecommendedRoute(null);
-  setRecommendationError(null);
+    setIsRecommending(true);
+    setRecommendedRoute(null);
+    setRecommendationError(null);
 
+    const apiVehicle = vehicleType;
 
-  const apiVehicle = vehicleType;
+    const dateTime = new Date(predictionDate);
+    dateTime.setHours(predictionHour, 0, 0, 0);
 
- 
-  const dateTime = new Date(predictionDate);
-  dateTime.setHours(predictionHour, 0, 0, 0);
+    const formattedDateTime = `${dateTime.getFullYear()}-${String(
+      dateTime.getMonth() + 1
+    ).padStart(2, "0")}-${String(dateTime.getDate()).padStart(
+      2,
+      "0"
+    )} ${String(dateTime.getHours()).padStart(2, "0")}:00:00`;
 
-  const formattedDateTime = `${dateTime.getFullYear()}-${String(
-    dateTime.getMonth() + 1
-  ).padStart(2, "0")}-${String(dateTime.getDate()).padStart(
-    2,
-    "0"
-  )} ${String(dateTime.getHours()).padStart(2, "0")}:00:00`;
-
-  try {
-    // ⭐ Endpoint correcto v2
-    const response = await api.post("/api/recommend-route-v2/", {
+    const requestBody: any = {
       vehicle_type: apiVehicle,
       fecha_hora: formattedDateTime,
-    });
+    };
 
-    setRecommendedRoute(response.data);
+    if (isConstructionMode && constructionSegmentId) {
+      requestBody.construction_segment_id = constructionSegmentId;
+    }
+    console.log("Request Body:", requestBody);
 
-    toast({
-      title: "Ruta Recomendada",
-      description: `Se recomendó el segmento ${response.data.segmento_recomendado.segmento_id}`,
-    });
+    try {
+      // ⭐ Endpoint correcto v2
+      const response = await api.post("/api/recommend-route-v2/", requestBody);
 
-  } catch (error) {
-    console.error("Error al obtener la ruta recomendada:", error);
+      setRecommendedRoute(response.data);
 
-    const errMsg = "No se pudo obtener la ruta recomendada. Intente mas tarde.";
-    setRecommendationError(errMsg);
+      toast({
+        title: "Ruta Recomendada",
+        description: `Se recomendó el segmento ${response.data.segmento_recomendado.segmento_id}`,
+      });
+    } catch (error) {
+      console.error("Error al obtener la ruta recomendada:", error);
 
-    toast({
-      title: "Error de Recomendación",
-      description: errMsg,
-      variant: "destructive",
-    });
+      const errMsg =
+        "No se pudo obtener la ruta recomendada. Intente mas tarde.";
+      setRecommendationError(errMsg);
 
-  } finally {
-    setIsRecommending(false);
-  }
-};
-
+      toast({
+        title: "Error de Recomendación",
+        description: errMsg,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecommending(false);
+    }
+  };
 
   const handleSegmentSelect = (
     id: number | null,
     pointId: string | null = null
   ) => {
-    setSelectedSegmentId(id);
-    setSelectedPointId(pointId);
-
-    if (id) {
-      clearDataInterval();
-      loadData();
-      setBusStops([]);
-      getBusStopsBySegment(id)
-        .then((stops) => {
-          setBusStops(stops);
-        })
-        .catch((err) => {
-          console.error("Error cargando paradas del segmento:", err);
-          setBusStops([]);
-        });
+    console.log("Segment selected:", id, "isConstructionMode:", isConstructionMode);
+    if (isConstructionMode) {
+      setConstructionSegmentId(id);
     } else {
-      setBusStops([]);
-      loadData();
-      setDataInterval();
+      setSelectedSegmentId(id);
+      setSelectedPointId(pointId);
+
+      if (id) {
+        clearDataInterval();
+        loadData();
+        setBusStops([]);
+        getBusStopsBySegment(id)
+          .then((stops) => {
+            setBusStops(stops);
+          })
+          .catch((err) => {
+            console.error("Error cargando paradas del segmento:", err);
+            setBusStops([]);
+          });
+      } else {
+        setBusStops([]);
+        loadData();
+        setDataInterval();
+      }
     }
   };
 
@@ -322,6 +332,7 @@ const handleRecommendRoute = async () => {
             busStops={busStops}
             recommendedRoute={recommendedRoute}
             isRecommending={isRecommending}
+            constructionSegmentId={constructionSegmentId}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -364,6 +375,8 @@ const handleRecommendRoute = async () => {
             tiempoRuta2={tiempoRuta2}
             scrollbarStyles={scrollbarStyles}
             isRecommending={isRecommending}
+            isConstructionMode={isConstructionMode}
+            onConstructionModeChange={setIsConstructionMode}
           />
 
           <div className="hidden md:block md:flex-1" />
@@ -374,7 +387,7 @@ const handleRecommendRoute = async () => {
             handleSegmentSelect={handleSegmentSelect}
             isPredictionMode={isPredictionMode}
             isPredictingData={isPredictingData}
-            scrollbarStyles={scrollbarStyles} 
+            scrollbarStyles={scrollbarStyles}
           />
         </div>
       </div>
