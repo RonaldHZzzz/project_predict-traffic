@@ -55,6 +55,7 @@ export interface MapDisplayProps {
   busStops?: BusStop[];
   recommendedRoute?: any | null;
   isRecommending?: boolean;
+  constructionSegmentId?: number | null;
 }
 
 export function MapDisplay({
@@ -65,6 +66,7 @@ export function MapDisplay({
   busStops = [],
   recommendedRoute = null,
   isRecommending = false,
+  constructionSegmentId = null,
 }: MapDisplayProps) {
   // Centro dinámico
   const mapCenter = useMemo(() => {
@@ -166,6 +168,7 @@ export function MapDisplay({
           getLineColor={getLineColor}
           recommendedRoute={recommendedRoute}
           isRecommending={isRecommending}
+          constructionSegmentId={constructionSegmentId}
         />
       </MapContainer>
     </div>
