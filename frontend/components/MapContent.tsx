@@ -15,6 +15,7 @@ interface MapContentProps {
   getLineColor: (congestion: number) => string;
   recommendedRoute?: any | null;
   isRecommending?: boolean;
+  constructionSegmentId?: number | null;
 }
 
 const busStopIcon = L.divIcon({
@@ -35,6 +36,7 @@ export function MapContent({
   getLineColor,
   recommendedRoute = null,
   isRecommending = false,
+  constructionSegmentId = null,
 }: MapContentProps) {
   const map = useMap();
   const routeLayerRef = useRef<L.Polyline | null>(null);
@@ -109,8 +111,14 @@ export function MapContent({
       let className = "";
 
       const isSelected = selectedSegmentId === segmento.segmento_id;
+      const isConstruction = constructionSegmentId === segmento.segmento_id;
 
-      if (isAnyRecommended) {
+      if (isConstruction) {
+        color = "#ffcc00"; // Amarillo para construcción
+        weight = 8;
+        opacity = 1;
+        className = "segment-glow";
+      } else if (isAnyRecommended) {
         // Atenuar todos los que NO son recomendados
         color = '#808080';
         weight = 2;
@@ -174,6 +182,7 @@ export function MapContent({
     map,
     recommendedRoute,
     recommendedId,
+    constructionSegmentId,
   ]);
 
   return null;
