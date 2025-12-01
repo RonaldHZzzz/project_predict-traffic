@@ -1,6 +1,4 @@
-"use client"
-
-import { useState } from "react"
+import React from "react";
 import {
   LineChart,
   Line,
@@ -10,263 +8,191 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from "recharts"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input" // Assuming Input component is available
-import { useDailyTrafficMetrics } from "../hooks/useDailyTrafficMetrics" // Adjust path as necessary
-import { Skeleton } from "@/components/ui/skeleton"
+} from "recharts";
 
-export function AnalyticsCharts() {
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to today
-  const [selectedSegment, setSelectedSegment] = useState<number | undefined>(undefined); // No segment selected by default
-
-  const { data, loading, error } = useDailyTrafficMetrics(selectedDate, selectedSegment);
-
-  return (
-    <div className="space-y-6">
-      {/* Date and Segment Selection */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <Card className="flex-1">
-          <CardHeader>
-            <CardTitle>Seleccionar Fecha</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full"
-            />
-          </CardContent>
-        </Card>
-        <Card className="flex-1">
-          <CardHeader>
-            <CardTitle>Filtrar por Segmento (Opcional)</CardTitle>
-            <CardDescription>Ingrese un ID de segmento para ver métricas específicas.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Input
-              type="number"
-              placeholder="Ej: 10"
-              value={selectedSegment || ''}
-              onChange={(e) => setSelectedSegment(e.target.value ? parseInt(e.target.value) : undefined)}
-              className="w-full"
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {loading && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Skeleton className="h-[350px] w-full" />
-            <Skeleton className="h-[350px] w-full" />
-        </div>
-      )}
-
-      {error && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-red-500">Error al cargar las métricas: {error.message}</p>
-            <p className="text-muted-foreground">Asegúrate de que el servidor backend esté en funcionamiento.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {data && !loading && !error && (
-        <>
-          {/* Charts Display */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {selectedSegment ? (
-              // Velocidad Promedio por Segmento
-              <Card>
-                <CardHeader>
-                  <CardTitle>Velocidad Promedio (Segmento {selectedSegment})</CardTitle>
-                  <CardDescription>Velocidad promedio por hora para el segmento seleccionado.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={data.hourly_metrics}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis
-                        dataKey="hora"
-                        label={{ value: "Hora", position: "insideBottomRight", offset: -5 }}
-                        tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-                      />
-                      <YAxis
-                        label={{ value: "Velocidad (km/h)", angle: -90, position: "insideLeft" }}
-                        tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "var(--color-card)",
-                          border: "1px solid var(--color-border)",
-                        }}
-                        labelStyle={{ color: "var(--color-foreground)" }}
-                      />
-                      <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="velocidad_promedio"
-                        stroke="var(--color-chart-1)"
-                        strokeWidth={2}
-                        dot={false}
-                        name="Velocidad (km/h)"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            ) : (
-              // Tráfico por Horas (General) - when no segment selected
-              <Card>
-                <CardHeader>
-                  <CardTitle>Volumen de Vehículos por Horas</CardTitle>
-                  <CardDescription>Volumen de vehículos promedio por hora (general).</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={data.hourly_metrics}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis
-                        dataKey="hora"
-                        label={{ value: "Hora", position: "insideBottomRight", offset: -5 }}
-                        tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-                      />
-                      <YAxis
-                        label={{ value: "Vehículos", angle: -90, position: "insideLeft" }}
-                        tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "var(--color-card)",
-                          border: "1px solid var(--color-border)",
-                        }}
-                        labelStyle={{ color: "var(--color-foreground)" }}
-                      />
-                      <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="carga_vehicular_promedio"
-                        stroke="var(--color-chart-1)"
-                        strokeWidth={2}
-                        dot={false}
-                        name="Carga Vehicular"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Congestion Level Chart (General or Segment Specific) */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Nivel de Congestión por Horas {selectedSegment ? `(Segmento ${selectedSegment})` : '(General)'}</CardTitle>
-                <CardDescription>Nivel de congestión promedio por hora.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={data.hourly_metrics}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                    <XAxis
-                      dataKey="hora"
-                      label={{ value: "Hora", position: "insideBottomRight", offset: -5 }}
-                      tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-                    />
-                    <YAxis
-                      label={{ value: "Nivel Congestión", angle: -90, position: "insideLeft" }}
-                      domain={[0, 5]} // Congestion level typically 0-5
-                      tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "var(--color-card)",
-                        border: "1px solid var(--color-border)",
-                      }}
-                      labelStyle={{ color: "var(--color-foreground)" }}
-                    />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="nivel_congestion_promedio"
-                      stroke="var(--color-chart-2)"
-                      strokeWidth={2}
-                      dot={false}
-                      name="Nivel de Congestión"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Peak Hour Metrics (only for overall view, not per-segment) */}
-          {!selectedSegment && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Hora Pico Principal</CardTitle>
-                  <CardDescription>Hora con mayor congestión promedio.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {data.principal_peak_hour ? (
-                    <div className="text-3xl font-bold">
-                      {data.principal_peak_hour.hora}
-                      <p className="text-muted-foreground text-sm mt-1">
-                        Nivel: {data.principal_peak_hour.nivel_congestion}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">N/A</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Hora Pico Secundaria</CardTitle>
-                  <CardDescription>Segunda hora con mayor congestión promedio.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {data.secondary_peak_hour ? (
-                    <div className="text-3xl font-bold">
-                      {data.secondary_peak_hour.hora}
-                      <p className="text-muted-foreground text-sm mt-1">
-                        Nivel: {data.secondary_peak_hour.nivel_congestion}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">N/A</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Horas Más Congestionadas (Nivel 4-5)</CardTitle>
-                  <CardDescription>Horas con niveles de congestión altos.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {data.most_congested_hours && data.most_congested_hours.length > 0 ? (
-                    <div className="space-y-1">
-                      {data.most_congested_hours.map((peak, index) => (
-                        <p key={index} className="text-lg font-semibold">
-                          {peak.hora} (Nivel: {peak.nivel_congestion})
-                        </p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">No hay horas con congestión nivel 4-5.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
+interface ChartDataPoint {
+  hour: string;
+  [key: string]: any;
 }
+
+interface Segment {
+  segmento_id: number;
+  nombre: string;
+}
+
+interface AnalyticsChartsProps {
+  data: ChartDataPoint[];
+  selectedSegment: string; // 'all' or segment_id as string
+  availableSegments: Segment[];
+}
+
+/* ──────────────────────────────────────────────── */
+/*  ABREVIADOR INTELIGENTE PARA NOMBRES DE SEGMENTOS */
+/* ──────────────────────────────────────────────── */
+const shortenSegmentName = (name: string): string => {
+  // Caso "Tramo X" → T1, T2, T3...
+  const tramoMatch = name.match(/Tramo (\d+)/i);
+  if (tramoMatch) return `T${tramoMatch[1]}`;
+
+  // Caso nombres largos con guiones → usar primera parte
+  if (name.includes(" - ")) return name.split(" - ")[0];
+
+  // Si es muy largo → recortar y agregar puntos suspensivos
+  if (name.length > 12) return name.slice(0, 10) + "…";
+
+  return name;
+};
+
+/* ──────────────────────────────────────────────── */
+/*   COLORES CONSISTENTES POR SEGMENTO              */
+/* ──────────────────────────────────────────────── */
+const getSegmentColor = (segmentName: string): string => {
+  const colors = [
+    "#3b82f6", "#22c55e", "#f97316", "#a855f7", "#ef4444",
+    "#eab308", "#14b8a6", "#6366f1", "#f472b6", "#84d6aa"
+  ];
+  const index = segmentName.split(" ").pop()
+    ? (parseInt(segmentName.split(" ").pop() as string) - 1) % colors.length
+    : 0;
+  return colors[index];
+};
+
+/* ──────────────────────────────────────────────── */
+/* WRAPPER DE CHART                                  */
+/* ──────────────────────────────────────────────── */
+const ChartWrapper: React.FC<{ title: string; children: React.ReactNode }> = ({
+  title,
+  children,
+}) => (
+  <div className="bg-white/10 p-4 rounded-lg shadow-md border border-white/20 h-80">
+    <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
+    {children}
+  </div>
+);
+
+/* ──────────────────────────────────────────────── */
+/*  COMPONENTE PRINCIPAL DE GRÁFICAS                */
+/* ──────────────────────────────────────────────── */
+
+export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
+  data,
+  selectedSegment,
+  availableSegments,
+}) => {
+
+  /* ───── Crear líneas dinámicas según segment y métrica ───── */
+  const getLines = (metricSuffix: string) => {
+    const segmentsToRender =
+      selectedSegment === "all"
+        ? availableSegments
+        : availableSegments.filter((s) => s.segmento_id.toString() === selectedSegment);
+
+    return segmentsToRender.map((s) => {
+      const shortLabel = shortenSegmentName(s.nombre);
+
+      return (
+        <Line
+          key={`${s.nombre}${metricSuffix}`}
+          type="monotone"
+          dataKey={`${s.nombre}${metricSuffix}`}
+          stroke={getSegmentColor(s.nombre)}
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 6 }}
+          name={shortLabel}
+        />
+      );
+    });
+  };
+
+  /* ──────────────────────────────────────────────── */
+  /*  RENDER DE TODAS LAS GRÁFICAS                   */
+  /* ──────────────────────────────────────────────── */
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      {/* ─── Volumen Vehicular ─── */}
+      <ChartWrapper title="Volumen de Vehículos por Hora">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff30" />
+            <XAxis dataKey="hour" stroke="#ffffff" />
+            <YAxis stroke="#ffffff" />
+            <Tooltip
+              contentStyle={{ backgroundColor: "#1e293b", borderColor: "#334155" }}
+              labelStyle={{ color: "#ffffff" }}
+              itemStyle={{ color: "#ffffff" }}
+            />
+            {selectedSegment === "all" && <Legend />}
+            {getLines("_volume")}
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartWrapper>
+
+      {/* ─── Nivel de Congestión ─── */}
+      <ChartWrapper title="Nivel de Congestión por Hora">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff30" />
+            <XAxis dataKey="hour" stroke="#ffffff" />
+            <YAxis
+              stroke="#ffffff"
+              domain={[0, 100]}
+              label={{ value: "% Congestión", angle: -90, position: "insideLeft", fill: "#ffffff" }}
+            />
+            <Tooltip
+              contentStyle={{ backgroundColor: "#1e293b", borderColor: "#334155" }}
+              itemStyle={{ color: "#ffffff" }}
+              formatter={(value: number) => `${value}%`}
+            />
+            {selectedSegment === "all" && <Legend />}
+            {getLines("_congestion")}
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartWrapper>
+
+      {/* ─── Tiempo de Recorrido ─── */}
+      <ChartWrapper title="Tiempo de Recorrido por Segmento (min)">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff30" />
+            <XAxis dataKey="hour" stroke="#ffffff" />
+            <YAxis
+              stroke="#ffffff"
+              label={{ value: "Minutos", angle: -90, position: "insideLeft", fill: "#ffffff" }}
+            />
+            <Tooltip
+              contentStyle={{ backgroundColor: "#1e293b", borderColor: "#334155" }}
+              itemStyle={{ color: "#ffffff" }}
+              formatter={(value: number) => `${value} min`}
+            />
+            {selectedSegment === "all" && <Legend />}
+            {getLines("_travel_time")}
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartWrapper>
+
+      {/* ─── Velocidad Promedio ─── */}
+      <ChartWrapper title="Velocidad Promedio por Segmento (km/h)">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff30" />
+            <XAxis dataKey="hour" stroke="#ffffff" />
+            <YAxis
+              stroke="#ffffff"
+              label={{ value: "km/h", angle: -90, position: "insideLeft", fill: "#ffffff" }}
+            />
+            <Tooltip
+              contentStyle={{ backgroundColor: "#1e293b", borderColor: "#334155" }}
+              itemStyle={{ color: "#ffffff" }}
+              formatter={(value: number) => `${value} km/h`}
+            />
+            {selectedSegment === "all" && <Legend />}
+            {getLines("_avg_speed")}
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartWrapper>
+
+    </div>
+  );
+};
