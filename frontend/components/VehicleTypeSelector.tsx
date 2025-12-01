@@ -15,8 +15,8 @@ export function VehicleTypeSelector({
   return (
     <div className="mb-4 pointer-events-auto flex justify-end items-center gap-2">
       <Button
-        variant={vehicleType === "auto" ? "default" : "outline"}
-        onClick={() => onVehicleTypeChange("auto")}
+        variant={vehicleType === "car" ? "default" : "outline"}
+        onClick={() => onVehicleTypeChange("car")}
         className="rounded-full backdrop-blur-sm"
       >
         <Car className="mr-2 h-4 w-4" />
