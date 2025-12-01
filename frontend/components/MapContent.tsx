@@ -26,6 +26,24 @@ const busStopIcon = L.divIcon({
   popupAnchor: [0, -28],
 });
 
+const targetIcon = L.divIcon({
+  html: `
+    <div style="
+      width: 14px;
+      height: 14px;
+      border-radius: 9999px;
+      background: #2563eb;
+      border: 2px solid white;
+      box-shadow: 0 0 10px #2563eb;
+    ">
+    </div>
+  `,
+  className: "",
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
+
 export function MapContent({
   points,
   segmentos,
@@ -41,12 +59,14 @@ export function MapContent({
   const map = useMap();
   const routeLayerRef = useRef<L.Polyline | null>(null);
   const loadingOverlayRef = useRef<L.LayerGroup<any> | null>(null);
+  const recommendedMarkerRef = useRef<L.Marker | null>(null);
 
-  // ⭐⭐ AQUI AGREGAMOS EL recommendedId ⭐⭐
+ 
   const recommendedId =
     recommendedRoute?.segmento_recomendado?.segmento_id ?? null;
 
   useEffect(() => {
+    
     // Limpiar capa de ruta anterior
     if (routeLayerRef.current) {
       map.removeLayer(routeLayerRef.current);
@@ -58,38 +78,89 @@ export function MapContent({
       console.log("Ruta recomendada recibida:", recommendedRoute);
     }
 
-    // Dibujar nueva ruta recomendada
-    if (recommendedId) {
-      const bestSegment = segmentos.find(
-        (s) => s.segmento_id === recommendedId
-      );
 
-      if (bestSegment) {
-        const routePositions = bestSegment.geometry.map(
-          ([lng, lat]) => [lat, lng] as [number, number]
-        );
+// Dibujar nueva ruta recomendada
+if (recommendedId) {
+  const bestSegment = segmentos.find(
+    (s) => s.segmento_id === recommendedId
+  );
 
-        if (routePositions.length > 0) {
-          const routePolyline = L.polyline(routePositions, {
-            color: "#2563eb",
-            weight: 8,
-            opacity: 0.9,
-            className: "recommended-route",
-          }).addTo(map);
+  let routePositions: [number, number][] = [];
+    
+  if (bestSegment) {
+    routePositions = bestSegment.geometry.map(
+      ([lng, lat]) => [lat, lng] as [number, number]
+    );
 
-          map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
-          routeLayerRef.current = routePolyline;
-        }
-      }
+    if (routePositions.length > 0) {
+      const routePolyline = L.polyline(routePositions, {
+        color: "#2563eb",
+        weight: 8,
+        opacity: 0.9,
+        className: "recommended-route",
+      }).addTo(map);
+
+      map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
+      routeLayerRef.current = routePolyline;
     }
+  }
+
+  // ⭐⭐ AQUI YA EXISTE routePositions ⭐⭐
+  if (routePositions.length > 0) {
+
+    // Limpiar target previo
+    if (recommendedMarkerRef.current) {
+      map.removeLayer(recommendedMarkerRef.current);
+      recommendedMarkerRef.current = null;
+    }
+
+    // Punto medio
+    const midIndex = Math.floor(routePositions.length / 2);
+    const midPoint = routePositions[midIndex];
+
+    // Datos del backend
+    const pred = recommendedRoute?.segmento_recomendado?.prediccion;
+
+    // Marker target
+    const marker = L.marker(midPoint, { icon: targetIcon })
+      .addTo(map)
+      .bindPopup(
+  `
+  <div style="padding: 8px; min-width: 160px; color: #000;">
+    <h3 style="font-size: 14px; font-weight: bold;">
+      ${bestSegment?.nombre ?? "Segmento"}
+    </h3>
+
+    <p style="font-size: 12px; margin-top: 4px;">
+      <b>Velocidad:</b> ${pred?.velocidad_kmh ?? "N/A"} km/h
+    </p>
+
+    <p style="font-size: 12px; margin-top: 4px;">
+      <b>Tiempo estimado:</b> ${pred?.tiempo_estimado_min ?? "N/A"} min
+    </p>
+  </div>
+  `
+)
+
+      .openPopup();
+
+    recommendedMarkerRef.current = marker;
+  }
+}
+
   }, [recommendedId, recommendedRoute, segmentos, map]);
 
   useEffect(() => {
     // Clean map layers except recommended route
     map.eachLayer((layer) => {
-      if ((layer instanceof L.Polyline || layer instanceof L.Marker) && layer !== routeLayerRef.current) {
-        map.removeLayer(layer);
-      }
+      if (
+  (layer instanceof L.Polyline || layer instanceof L.Marker) &&
+  layer !== routeLayerRef.current &&
+  layer !== recommendedMarkerRef.current
+) {
+  map.removeLayer(layer);
+}
+
     });
 
     // Dibujar segmentos
