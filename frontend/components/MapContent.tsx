@@ -40,6 +40,10 @@ export function MapContent({
   const routeLayerRef = useRef<L.Polyline | null>(null);
   const loadingOverlayRef = useRef<L.LayerGroup<any> | null>(null);
 
+  // ⭐⭐ AQUI AGREGAMOS EL recommendedId ⭐⭐
+  const recommendedId =
+    recommendedRoute?.segmento_recomendado?.segmento_id ?? null;
+
   useEffect(() => {
     // Limpiar capa de ruta anterior
     if (routeLayerRef.current) {
@@ -47,15 +51,15 @@ export function MapContent({
       routeLayerRef.current = null;
     }
 
-    // Log the received route data for debugging
+    // Log para depuración
     if (recommendedRoute) {
       console.log("Ruta recomendada recibida:", recommendedRoute);
     }
 
     // Dibujar nueva ruta recomendada
-    if (recommendedRoute && recommendedRoute.mejor_segmento) {
+    if (recommendedId) {
       const bestSegment = segmentos.find(
-        (s) => s.segmento_id === recommendedRoute.mejor_segmento
+        (s) => s.segmento_id === recommendedId
       );
 
       if (bestSegment) {
@@ -76,31 +80,29 @@ export function MapContent({
         }
       }
     }
-  }, [recommendedRoute, segmentos, map]);
+  }, [recommendedId, recommendedRoute, segmentos, map]);
 
   useEffect(() => {
-    // Clear existing layers for segments and markers
+    // Clean map layers except recommended route
     map.eachLayer((layer) => {
       if ((layer instanceof L.Polyline || layer instanceof L.Marker) && layer !== routeLayerRef.current) {
         map.removeLayer(layer);
       }
     });
 
-    // Add new polylines for segments
+    // Dibujar segmentos
     segmentos.forEach((segmento) => {
-      const isRecommended = recommendedRoute && segmento.segmento_id === recommendedRoute.mejor_segmento;
-      // If this segment is the one that is already highlighted, don't draw it again.
-      if (isRecommended) {
-        return;
-      }
+      const isRecommended = recommendedId && segmento.segmento_id === recommendedId;
+
+      // No dibujar el segmento recomendado aquí porque ya lo dibujamos en el efecto anterior
+      if (isRecommended) return;
 
       const positions = segmento.geometry.map(
         ([lng, lat]) => [lat, lng] as [number, number]
       );
-      
-      const isAnyRecommended = recommendedRoute && recommendedRoute.mejor_segmento;
 
-      // Default styling
+      const isAnyRecommended = recommendedId !== null;
+
       let color = getLineColor(congestionBySegmento.get(segmento.segmento_id) ?? 25);
       let weight = 5;
       let opacity = 0.8;
@@ -109,12 +111,11 @@ export function MapContent({
       const isSelected = selectedSegmentId === segmento.segmento_id;
 
       if (isAnyRecommended) {
-        // Mode: Recommended route is active, so fade out all non-recommended segments.
-        color = '#808080'; // Faded gray
+        // Atenuar todos los que NO son recomendados
+        color = '#808080';
         weight = 2;
         opacity = 0.3;
       } else if (selectedSegmentId !== null) {
-        // Mode: A segment is selected, but no recommendation is active
         if (isSelected) {
           weight = 8;
           opacity = 1;
@@ -134,15 +135,12 @@ export function MapContent({
 
       if (onSelectSegment) {
         polyline.on("click", () => {
-          onSelectSegment(
-            isSelected ? null : segmento.segmento_id,
-            null
-          );
+          onSelectSegment(isSelected ? null : segmento.segmento_id, null);
         });
       }
     });
 
-    // Add new markers
+    // Dibujar puntos
     points.forEach((point) => {
       L.marker([point.lat, point.lng])
         .addTo(map)
@@ -155,7 +153,7 @@ export function MapContent({
         );
     });
 
-    // Add bus stops
+    // Dibujar paradas de bus
     (busStops ?? []).forEach((stop) => {
       L.marker([stop.lat, stop.lon], { icon: busStopIcon })
         .addTo(map)
@@ -165,7 +163,18 @@ export function MapContent({
           }</p><p class="text-xs mt-1">Segmento: ${stop.segmento}</p></div>`
         );
     });
-  }, [points, segmentos, busStops, selectedSegmentId, congestionBySegmento, getLineColor, onSelectSegment, map, recommendedRoute]);
+  }, [
+    points,
+    segmentos,
+    busStops,
+    selectedSegmentId,
+    congestionBySegmento,
+    getLineColor,
+    onSelectSegment,
+    map,
+    recommendedRoute,
+    recommendedId,
+  ]);
 
   return null;
 }

@@ -202,52 +202,65 @@ export default function DashboardPage() {
     return Math.max(5, Math.min(100, Math.round(totalCongestion)));
   };
 
-  const handleRecommendRoute = async () => {
-    if (!predictionDate) {
-      toast({
-        title: "Fecha no seleccionada",
-        description: "Por favor, seleccione una fecha para la predicción.",
-        variant: "destructive",
-      });
-      return;
-    }
+const handleRecommendRoute = async () => {
+  if (!predictionDate) {
+    toast({
+      title: "Fecha no seleccionada",
+      description: "Por favor, seleccione una fecha para la predicción.",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    setIsRecommending(true);
-    setRecommendedRoute(null);
-    setRecommendationError(null);
+  setIsRecommending(true);
+  setRecommendedRoute(null);
+  setRecommendationError(null);
 
-    const dateTime = new Date(predictionDate);
-    dateTime.setHours(predictionHour, 0, 0, 0);
 
-    const formattedDateTime = `${dateTime.getFullYear()}-${String(
-      dateTime.getMonth() + 1
-    ).padStart(2, "0")}-${String(dateTime.getDate()).padStart(
-      2,
-      "0"
-    )} ${String(dateTime.getHours()).padStart(2, "0")}:00:00`;
+  const apiVehicle = vehicleType;
 
-    try {
-      const response = await api.post("/api/recommend-route/", {
-        fecha_hora: formattedDateTime,
-      });
-      setRecommendedRoute(response.data);
-      toast({
-        title: "Ruta Recomendada",
-        description: "La mejor ruta ha sido cargada en el mapa.",
-      });
-    } catch (error) {
-      console.error("Error al obtener la ruta recomendada:", error);
-      const errorMessage = "No se pudo obtener la ruta recomendada. Intente de nuevo más tarde.";
-      setRecommendationError(errorMessage);
-      toast({
-        title: "Error de Recomendación",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsRecommending(false);
-    }
-  };
+ 
+  const dateTime = new Date(predictionDate);
+  dateTime.setHours(predictionHour, 0, 0, 0);
+
+  const formattedDateTime = `${dateTime.getFullYear()}-${String(
+    dateTime.getMonth() + 1
+  ).padStart(2, "0")}-${String(dateTime.getDate()).padStart(
+    2,
+    "0"
+  )} ${String(dateTime.getHours()).padStart(2, "0")}:00:00`;
+
+  try {
+    // ⭐ Endpoint correcto v2
+    const response = await api.post("/api/recommend-route-v2/", {
+      vehicle_type: apiVehicle,
+      fecha_hora: formattedDateTime,
+    });
+
+    setRecommendedRoute(response.data);
+
+    toast({
+      title: "Ruta Recomendada",
+      description: `Se recomendó el segmento ${response.data.segmento_recomendado.segmento_id}`,
+    });
+
+  } catch (error) {
+    console.error("Error al obtener la ruta recomendada:", error);
+
+    const errMsg = "No se pudo obtener la ruta recomendada. Intente mas tarde.";
+    setRecommendationError(errMsg);
+
+    toast({
+      title: "Error de Recomendación",
+      description: errMsg,
+      variant: "destructive",
+    });
+
+  } finally {
+    setIsRecommending(false);
+  }
+};
+
 
   const handleSegmentSelect = (
     id: number | null,

@@ -2,7 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-
+from .models import Segmento
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
@@ -57,31 +57,25 @@ route_request_schema = openapi.Schema(
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def predict_traffic(request):
-    """
-    Devuelve la predicción hora por hora de un segmento específico.
-    """
     try:
         data = request.data
 
         if "segmento_id" not in data:
-            return Response(
-                {"error": "Falta segmento_id"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Falta segmento_id"}, status=400)
 
         segmento_id = int(data["segmento_id"])
         fecha = data.get("fecha", None)
 
         resultado = predict_congestion_24h(segmento_id=segmento_id, fecha=fecha)
 
-        return Response(resultado, status=status.HTTP_200_OK)
+        return Response(resultado, status=200)
 
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"error": str(e)}, status=500)
 
 
 # ==========================================
-# ENDPOINT 2: RECOMENDAR MEJOR RUTA
+# ENDPOINT 2: RECOMENDAR MEJOR SEGMENTO (v1 - EXISTENTE)
 # ==========================================
 @swagger_auto_schema(
     method="post",
@@ -99,3 +93,159 @@ def get_best_segment(request):
 
     resultado = recomendar_mejor_segmento(fecha_hora)
     return Response(resultado)
+
+
+# ==========================================
+# ENDPOINT 3: RECOMENDAR RUTA (v1 - VEHÍCULO)
+# ==========================================
+@api_view(["POST"])
+def recommend_route_v1(request):
+    vehicle_type = request.data.get("vehicle_type", "car")
+
+    VEHICLE_TYPES = ["car", "moto", "bus"]
+    if vehicle_type not in VEHICLE_TYPES:
+        return Response(
+            {"detail": "Tipo de vehículo inválido. Usa: 'car', 'moto', 'bus'."},
+            status=400
+        )
+
+    SEGMENTOS_BUS = [1, 2]
+    SEGMENTOS_CAR = [3, 4, 5, 6, 7, 8, 9]
+    SEGMENTOS_MOTO = [3, 4, 5, 6, 7, 8, 9, 10]
+
+    if vehicle_type == "bus":
+        allowed_ids = SEGMENTOS_BUS
+    elif vehicle_type == "car":
+        allowed_ids = SEGMENTOS_CAR
+    else:
+        allowed_ids = SEGMENTOS_MOTO
+
+    segmentos = Segmento.objects.filter(segmento_id__in=allowed_ids)
+
+    if not segmentos.exists():
+        return Response(
+            {"detail": f"No hay rutas permitidas para {vehicle_type}."},
+            status=400
+        )
+
+    resultados = []
+
+    for seg in segmentos:
+        congestion = getattr(seg, "nivel_congestion", 1)
+        velocidad = getattr(seg, "velocidad", 40)
+
+        score = (congestion * 1.5) - (velocidad / 30)
+
+        if vehicle_type == "moto" and seg.segmento_id == 10:
+            score *= 0.6
+
+        resultados.append({
+            "segmento_id": seg.segmento_id,
+            "nombre": seg.nombre,
+            "score": round(score, 3),
+            "congestion": congestion,
+            "velocidad": velocidad,
+        })
+
+    mejor = sorted(resultados, key=lambda x: x["score"])[0]
+
+    return Response({
+        "vehiculo": vehicle_type,
+        "mejor_ruta": mejor,
+        "todas_las_opciones": resultados
+    })
+
+
+# ==========================================
+# ENDPOINT 4: RECOMENDAR RUTA (v2 - VEHÍCULO + FECHA + HORA)
+# ==========================================
+@swagger_auto_schema(
+    method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=["vehicle_type", "fecha_hora"],
+        properties={
+            "vehicle_type": openapi.Schema(
+                type=openapi.TYPE_STRING,
+                enum=["car", "moto", "bus"],
+                description="Tipo de vehículo"
+            ),
+            "fecha_hora": openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description="Fecha y hora (YYYY-MM-DD HH:MM:SS)"
+            ),
+        }
+    ),
+    responses={200: "Ruta recomendada generada correctamente"}
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def recommend_route_v2(request):
+    vehicle_type = request.data.get("vehicle_type")
+    fecha_hora = request.data.get("fecha_hora")
+
+    if not vehicle_type or not fecha_hora:
+        return Response(
+            {"detail": "Debe enviar vehicle_type y fecha_hora"},
+            status=400
+        )
+
+    SEGMENTOS_BUS = [1, 2]
+    SEGMENTOS_CAR = [3, 4, 5, 6, 7, 8, 9]
+    SEGMENTOS_MOTO = [3, 4, 5, 6, 7, 8, 9, 10]
+
+    if vehicle_type == "bus":
+        allowed_segments = SEGMENTOS_BUS
+    elif vehicle_type == "car":
+        allowed_segments = SEGMENTOS_CAR
+    else:
+        allowed_segments = SEGMENTOS_MOTO
+
+    fecha, hora = fecha_hora.split(" ")
+    hora = hora[:5]
+    predictions = []
+
+    for seg_id in allowed_segments:
+        pred_list = predict_congestion_24h(seg_id, fecha)
+        hour_pred = next((p for p in pred_list if p["hora"] == hora), None)
+
+        if hour_pred:
+            predictions.append({
+                "segmento_id": seg_id,
+                "pred": hour_pred
+            })
+
+    if not predictions:
+        return Response(
+            {"detail": "No hay datos de predicción para esta fecha y hora."},
+            status=404
+        )
+
+    results = []
+
+    for item in predictions:
+        seg_id = item["segmento_id"]
+        pred = item["pred"]
+
+        congestion = pred["nivel_congestion"]
+        velocidad = pred["velocidad_kmh"]
+
+        score = congestion * 1.2 - (velocidad / 40)
+
+        if vehicle_type == "moto" and seg_id == 10:
+            score *= 0.6
+
+        results.append({
+            "segmento_id": seg_id,
+            "score": round(score, 3),
+            "prediccion": pred
+        })
+
+    mejor = sorted(results, key=lambda x: x["score"])[0]
+
+    return Response({
+        "vehiculo": vehicle_type,
+        "fecha_hora": fecha_hora,
+        "segmento_recomendado": mejor,
+        "todas_las_opciones": results
+    })
