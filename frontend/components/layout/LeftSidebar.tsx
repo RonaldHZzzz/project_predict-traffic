@@ -23,6 +23,8 @@ interface LeftSidebarProps {
   tiempoRuta2: number | null;
   scrollbarStyles: string;
   isRecommending: boolean;
+  isConstructionMode: boolean;
+  onConstructionModeChange: (isMode: boolean) => void;
 }
 
 export function LeftSidebar({
@@ -41,6 +43,8 @@ export function LeftSidebar({
   tiempoRuta2,
   scrollbarStyles,
   isRecommending,
+  isConstructionMode,
+  onConstructionModeChange,
 }: LeftSidebarProps) {
   return (
     <div
@@ -60,6 +64,8 @@ export function LeftSidebar({
           onPredictionHourChange={onPredictionHourChange}
           onRecommendRoute={onRecommendRoute}
           isRecommending={isRecommending}
+          isConstructionMode={isConstructionMode}
+          onConstructionModeChange={onConstructionModeChange}
         />
       </GlassCard>
 
