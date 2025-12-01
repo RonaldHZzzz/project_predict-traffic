@@ -1,29 +1,22 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import {
   BrainCircuit,
   Calendar as CalendarIcon,
   Clock,
+  Construction,
   Waypoints,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+
 
 interface ControlPanelProps {
   isPredictionMode: boolean;
@@ -34,6 +27,8 @@ interface ControlPanelProps {
   onPredictionHourChange: (hour: number) => void;
   onRecommendRoute: () => void;
   isRecommending: boolean;
+  isConstructionMode: boolean;
+  onConstructionModeChange: (isMode: boolean) => void;
 }
 
 export function ControlPanel({
@@ -45,6 +40,8 @@ export function ControlPanel({
   onPredictionHourChange,
   onRecommendRoute,
   isRecommending,
+  isConstructionMode,
+  onConstructionModeChange,
 }: ControlPanelProps) {
   return (
     <div className="h-full flex flex-col gap-4">
@@ -128,6 +125,33 @@ export function ControlPanel({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <Separator className="bg-white/10" />
+
+          {/* Agregar Construcción */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+              <Construction className="w-3 h-3" /> Agregar Construcción
+            </Label>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="construction-mode"
+                checked={isConstructionMode}
+                onCheckedChange={onConstructionModeChange}
+              />
+              <label
+                htmlFor="construction-mode"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Activar modo construcción
+              </label>
+            </div>
+            {isConstructionMode && (
+              <p className="text-xs text-muted-foreground">
+                Seleccione un segmento en el mapa para agregar la construcción.
+              </p>
+            )}
           </div>
 
           <Separator className="bg-white/10" />
