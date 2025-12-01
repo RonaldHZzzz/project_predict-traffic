@@ -249,3 +249,127 @@ def recommend_route_v2(request):
         "segmento_recomendado": mejor,
         "todas_las_opciones": results
     })
+
+
+# ==========================================
+# ENDPOINT 5: OBTENER DATOS DE ANALÍTICAS
+# ==========================================
+@swagger_auto_schema(
+    method='get',
+    manual_parameters=[
+        openapi.Parameter('date', openapi.IN_QUERY, description="Fecha para la cual obtener analíticas (YYYY-MM-DD)", type=openapi.TYPE_STRING, required=True),
+        openapi.Parameter('segment_id', openapi.IN_QUERY, description="ID de un segmento específico o 'all' para todos", type=openapi.TYPE_STRING, required=False, default='all')
+    ],
+    responses={200: "Datos de analíticas obtenidos correctamente"}
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_analytics_data(request):
+    try:
+        date_str = request.query_params.get('date')
+        segment_filter = request.query_params.get('segment_id', 'all')
+
+        if not date_str:
+            return Response({"error": "Parámetro 'date' es requerido (YYYY-MM-DD)."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from datetime import datetime
+            datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            return Response({"error": "Formato de fecha inválido. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get all segments dynamically from the database
+        all_segments_db = Segmento.objects.all().order_by('segmento_id')
+        all_segment_ids = [seg.segmento_id for seg in all_segments_db]
+        segment_id_to_name_map = {seg.segmento_id: seg.nombre for seg in all_segments_db}
+
+        # Prepare segment list for the frontend
+        segments_for_frontend = [{"id": seg.segmento_id, "name": seg.nombre} for seg in all_segments_db]
+
+        target_segment_ids = []
+        if segment_filter == 'all':
+            target_segment_ids = all_segment_ids
+        else:
+            try:
+                seg_id = int(segment_filter)
+                if seg_id not in all_segment_ids:
+                    return Response({"error": f"segment_id '{segment_filter}' inválido. IDs válidos: {all_segment_ids}"}, status=status.HTTP_400_BAD_REQUEST)
+                target_segment_ids.append(seg_id)
+            except ValueError:
+                return Response({"error": f"segment_id '{segment_filter}' inválido. Debe ser un número entero o 'all'."}, status=status.HTTP_400_BAD_REQUEST)
+
+        aggregated_hourly_chart_data = {}
+        hourly_data_raw = []
+
+        for seg_id in target_segment_ids:
+            segment_name = segment_id_to_name_map.get(seg_id, f"ID {seg_id}")
+            predictions_24h = predict_congestion_24h(segmento_id=seg_id, fecha=date_str)
+            for pred in predictions_24h:
+                hour = pred["hora"]
+                if hour not in aggregated_hourly_chart_data:
+                    aggregated_hourly_chart_data[hour] = {}
+                
+                congestion_percentage = round(((pred["nivel_congestion"] - 1) / 4) * 100, 2)
+
+                aggregated_hourly_chart_data[hour][segment_name] = {
+                    "nivel_congestion_percent": congestion_percentage,
+                    "velocidad_kmh": pred["velocidad_kmh"],
+                    "tiempo_estimado_min": pred["tiempo_estimado_min"],
+                    "carga_vehicular": pred["carga_vehicular"],
+                }
+                # Add raw prediction for metric calculations
+                hourly_data_raw.append(pred)
+
+        chart_data_for_frontend = []
+        for hour in sorted(aggregated_hourly_chart_data.keys()):
+            hour_entry = {"hour": hour}
+            for segment_name, segment_data in aggregated_hourly_chart_data[hour].items():
+                hour_entry[f"{segment_name}_volume"] = segment_data["carga_vehicular"]
+                hour_entry[f"{segment_name}_congestion"] = segment_data["nivel_congestion_percent"]
+                hour_entry[f"{segment_name}_travel_time"] = segment_data["tiempo_estimado_min"]
+                hour_entry[f"{segment_name}_avg_speed"] = segment_data["velocidad_kmh"]
+            chart_data_for_frontend.append(hour_entry)
+
+        # --- Calculate Metric Cards Data ---
+        if not hourly_data_raw:
+             metrics_data = {
+                "hora_pico_manana": "N/A",
+                "hora_pico_tarde": "N/A",
+                "promedio_vehiculos": "0 veh./hr",
+                "nivel_congestion_general": "0%",
+            }
+        else:
+            total_vehicles = sum(p["carga_vehicular"] for p in hourly_data_raw)
+            total_congestion_percentage = sum(round(((p["nivel_congestion"] - 1) / 4) * 100, 2) for p in hourly_data_raw)
+            num_data_points = len(hourly_data_raw)
+
+            hourly_vehicle_counts = {f"{h:02d}:00": 0.0 for h in range(24)}
+            for pred in hourly_data_raw:
+                hourly_vehicle_counts[pred["hora"]] += pred["carga_vehicular"]
+
+            morning_peak_hour = max((hourly_vehicle_counts[f"{h:02d}:00"] for h in range(13)), default=0)
+            morning_peak_hour_str = next((h for h,v in hourly_vehicle_counts.items() if v == morning_peak_hour and int(h[:2]) < 13), "00:00")
+
+            evening_peak_hour = max((hourly_vehicle_counts[f"{h:02d}:00"] for h in range(12, 24)), default=0)
+            evening_peak_hour_str = next((h for h,v in hourly_vehicle_counts.items() if v == evening_peak_hour and int(h[:2]) >= 12), "12:00")
+            
+            average_vehicles_per_hour = round(total_vehicles / num_data_points, 2) if num_data_points > 0 else 0
+            average_congestion_percentage = round(total_congestion_percentage / num_data_points, 2) if num_data_points > 0 else 0
+
+            metrics_data = {
+                "hora_pico_manana": f"{morning_peak_hour_str} ({int(morning_peak_hour)} veh.)",
+                "hora_pico_tarde": f"{evening_peak_hour_str} ({int(evening_peak_hour)} veh.)",
+                "promedio_vehiculos": f"{average_vehicles_per_hour} veh./hr",
+                "nivel_congestion_general": f"{average_congestion_percentage}%",
+            }
+
+        return Response({
+            "chart_data": chart_data_for_frontend,
+            "metrics": metrics_data,
+            "segments": segments_for_frontend, # Return segments to frontend
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({"error": "Error interno del servidor", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
